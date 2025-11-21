@@ -54,6 +54,19 @@ async function loadStats() {
         document.getElementById('total-requests').textContent = data.total_requests;
         document.getElementById('active-endpoints').textContent = data.active_endpoints;
         document.getElementById('systems-connected').textContent = data.systems_connected;
+
+        // Render hourly chart
+        const chartContainer = document.querySelector('.chart-bars');
+        if (chartContainer && data.hourly_requests && data.hourly_requests.length > 0) {
+            // Find max count for scaling
+            const maxCount = Math.max(...data.hourly_requests.map(h => h.count), 1);
+
+            // Generate chart bars
+            chartContainer.innerHTML = data.hourly_requests.map(hourData => {
+                const heightPercent = (hourData.count / maxCount) * 100;
+                return `<div class="bar" style="height: ${heightPercent}%;" title="${hourData.hour}:00 - ${hourData.count} requests"></div>`;
+            }).join('');
+        }
     } catch (err) {
         console.error('Failed to load stats', err);
     }

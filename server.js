@@ -312,7 +312,7 @@ app.post('/external/xai/chat', async (req, res) => {
 
 // 3. Admin API Endpoints
 app.get('/api/admin/stats', (req, res) => {
-    // Return some mock stats
+    // Return stats including hourly data for chart
     db.get("SELECT COUNT(*) as count FROM request_logs", (err, row) => {
         if (err) return res.status(500).json({ error: err.message });
 
@@ -320,10 +320,52 @@ app.get('/api/admin/stats', (req, res) => {
             if (err) return res.status(500).json({ error: err.message });
             db.get("SELECT COUNT(*) as count FROM systems", (err, sysRow) => {
                 if (err) return res.status(500).json({ error: err.message });
-                res.json({
-                    total_requests: row.count,
-                    active_endpoints: epRow.count,
-                    systems_connected: sysRow.count
+
+                // Get hourly request counts for the last 24 hours
+                const hourlyQuery = `
+                    SELECT 
+                        strftime('%H', created_at) as hour,
+                        COUNT(*) as count
+                    FROM request_logs
+                    WHERE created_at >= datetime('now', '-24 hours')
+                    GROUP BY hour
+                    ORDER BY hour
+                `;
+
+                db.all(hourlyQuery, (err, hourlyData) => {
+                    if (err) {
+                        // If error, return basic stats without hourly data
+                        return res.json({
+                            total_requests: row.count,
+                            active_endpoints: epRow.count,
+                            systems_connected: sysRow.count,
+                            hourly_requests: []
+                        });
+                    }
+
+                    // Fill in missing hours with zero counts
+                    const hourlyMap = {};
+                    hourlyData.forEach(item => {
+                        hourlyMap[parseInt(item.hour)] = item.count;
+                    });
+
+                    // Get current hour and generate last 7 hours of data
+                    const now = new Date();
+                    const hourlyRequests = [];
+                    for (let i = 6; i >= 0; i--) {
+                        const targetHour = (now.getHours() - i + 24) % 24;
+                        hourlyRequests.push({
+                            hour: targetHour,
+                            count: hourlyMap[targetHour] || 0
+                        });
+                    }
+
+                    res.json({
+                        total_requests: row.count,
+                        active_endpoints: epRow.count,
+                        systems_connected: sysRow.count,
+                        hourly_requests: hourlyRequests
+                    });
                 });
             });
         });

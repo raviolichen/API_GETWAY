@@ -54,14 +54,6 @@
                 <div class="chart-container">
                     <h3>今日流量趨勢 (Mock)</h3>
                     <div class="mock-chart">
-                        <!-- Mock Chart Visual -->
-                        <div class="bar" style="height: 40%"></div>
-                        <div class="bar" style="height: 70%"></div>
-                        <div class="bar" style="height: 50%"></div>
-                        <div class="bar" style="height: 90%"></div>
-                        <div class="bar" style="height: 60%"></div>
-                        <div class="bar" style="height: 30%"></div>
-                        <div class="bar" style="height: 80%"></div>
                     </div>
                 </div>
 
@@ -72,21 +64,23 @@
                     <h2>API 端點列表</h2>
                     <button class="btn-primary" onclick="openModal()">+ 新增端點</button>
                 </div>
-                <table class="data-table">
-                    <thead>
-                        <tr>
-                            <th>名稱</th>
-                            <th>路徑</th>
-                            <th>目標 URL</th>
-                            <th>類型</th>
-                            <th>狀態</th>
-                            <th>操作</th>
-                        </tr>
-                    </thead>
-                    <tbody id="endpoints-table-body">
-                        <!-- Dynamic Content -->
-                    </tbody>
-                </table>
+                <div class="table-responsive">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>名稱</th>
+                                <th>路徑</th>
+                                <th>目標 URL</th>
+                                <th>類型</th>
+                                <th>狀態</th>
+                                <th>操作</th>
+                            </tr>
+                        </thead>
+                        <tbody id="endpoints-table-body">
+                            <!-- Dynamic Content -->
+                        </tbody>
+                    </table>
+                </div>
             </div>
 
             <div id="system-management" class="tab-content">
@@ -94,41 +88,45 @@
                     <h2>已註冊系統</h2>
                     <button class="btn-primary" onclick="openSystemModal()">+ 新增系統</button>
                 </div>
-                <table class="data-table">
-                    <thead>
-                        <tr>
-                            <th>系統名稱</th>
-                            <th>API Key</th>
-                            <th>流量限制 (次/小時)</th>
-                            <th>IP 白名單</th>
-                            <th>已授權端點</th>
-                            <th>操作</th>
-                        </tr>
-                    </thead>
-                    <tbody id="systems-table-body">
-                        <!-- Dynamic Content -->
-                    </tbody>
-                </table>
+                <div class="table-responsive">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>系統名稱</th>
+                                <th>API Key</th>
+                                <th>流量限制 (次/小時)</th>
+                                <th>IP 白名單</th>
+                                <th>已授權端點</th>
+                                <th>操作</th>
+                            </tr>
+                        </thead>
+                        <tbody id="systems-table-body">
+                            <!-- Dynamic Content -->
+                        </tbody>
+                    </table>
+                </div>
             </div>
 
             <div id="logs" class="tab-content">
                 <h2>最近請求日誌</h2>
                 <button id="refresh-logs" class="btn-primary">重新整理</button>
-                <table class="data-table" id="logs-table">
-                    <thead>
-                        <tr>
-                            <th>時間</th>
-                            <th>系統</th>
-                            <th>端點名稱</th>
-                            <th>路徑</th>
-                            <th>HTTP 狀態</th>
-                            <th>回應時間</th>
-                        </tr>
-                    </thead>
-                    <tbody id="logs-body">
-                        <!-- Logs will be populated here -->
-                    </tbody>
-                </table>
+                <div class="table-responsive">
+                    <table class="data-table" id="logs-table">
+                        <thead>
+                            <tr>
+                                <th>時間</th>
+                                <th>系統</th>
+                                <th>端點名稱</th>
+                                <th>路徑</th>
+                                <th>HTTP 狀態</th>
+                                <th>回應時間</th>
+                            </tr>
+                        </thead>
+                        <tbody id="logs-body">
+                            <!-- Logs will be populated here -->
+                        </tbody>
+                    </table>
+                </div>
             </div>
 
             <div id="transformations" class="tab-content">
@@ -152,24 +150,27 @@
                             <button class="btn-primary" id="btn-refresh-rules">重新整理</button>
                         </div>
                     </div>
-                    <table class="data-table">
-                        <thead>
-                            <tr>
-                                <th>名稱</th>
-                                <th>端點</th>
-                                <th>格式</th>
-                                <th>類型</th>
-                                <th>更新時間</th>
-                                <th>狀態</th>
-                                <th>操作</th>
-                            </tr>
-                        </thead>
-                        <tbody id="transformations-table-body">
-                            <tr>
-                                <td colspan="6" style="text-align: center; color: var(--secondary-color);">尚未載入規則</td>
-                            </tr>
-                        </tbody>
-                    </table>
+                    <div class="table-responsive">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>名稱</th>
+                                    <th>端點</th>
+                                    <th>格式</th>
+                                    <th>類型</th>
+                                    <th>更新時間</th>
+                                    <th>狀態</th>
+                                    <th>操作</th>
+                                </tr>
+                            </thead>
+                            <tbody id="transformations-table-body">
+                                <tr>
+                                    <td colspan="6" style="text-align: center; color: var(--secondary-color);">尚未載入規則
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
 
                 <div class="rule-meta-card">
@@ -348,7 +349,8 @@
                 </div>
                 <div class="form-group">
                     <label>IP 白名單</label>
-                    <textarea id="system-ip-whitelist" rows="3" placeholder="每行一個 IP，例如:&#10;192.168.1.100&#10;203.66.*.* "></textarea>
+                    <textarea id="system-ip-whitelist" rows="3"
+                        placeholder="每行一個 IP，例如:&#10;192.168.1.100&#10;203.66.*.* "></textarea>
                     <small style="color: var(--secondary-color);">留空表示不限制 IP。支援通配符 *</small>
                 </div>
             </div>
@@ -373,7 +375,8 @@
                 </p>
                 <div class="form-group">
                     <label>選擇允許存取的 API 端點</label>
-                    <div id="endpoints-checklist" style="max-height: 400px; overflow-y: auto; border: 1px solid var(--border-color); padding: 10px; border-radius: 4px;">
+                    <div id="endpoints-checklist"
+                        style="max-height: 400px; overflow-y: auto; border: 1px solid var(--border-color); padding: 10px; border-radius: 4px;">
                         <!-- Checkboxes will be populated here -->
                     </div>
                 </div>
@@ -399,7 +402,8 @@
                 <div class="form-group">
                     <label>新的 API Key</label>
                     <div style="display: flex; gap: 10px;">
-                        <input type="text" id="apikey-display" readonly style="flex: 1; font-family: monospace; background: #f1f5f9;">
+                        <input type="text" id="apikey-display" readonly
+                            style="flex: 1; font-family: monospace; background: #f1f5f9;">
                         <button class="btn-primary" onclick="copyApiKey()">複製</button>
                     </div>
                 </div>
