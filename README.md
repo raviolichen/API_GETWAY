@@ -1,4 +1,4 @@
-# API Gateway - 雲林縣衛生局資料交換平台
+# API Gateway - 資料交換平台
 
 基於需求文件實作的 API Gateway 系統，提供統一的 API 管理、認證、流量控制、快取與資料轉換功能。
 
