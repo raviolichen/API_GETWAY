@@ -1,0 +1,25 @@
+{
+  "name": "api_gw",
+  "version": "1.0.0",
+  "description": "",
+  "main": "read_requirements.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "axios": "^1.13.2",
+    "body-parser": "^2.2.0",
+    "cors": "^2.8.5",
+    "csv-parse": "^5.5.6",
+    "csv-stringify": "^6.5.2",
+    "express": "^5.1.0",
+    "handlebars": "^4.7.8",
+    "mammoth": "^1.11.0",
+    "sqlite3": "^5.1.7",
+    "xml2js": "^0.6.2"
+  }
+}

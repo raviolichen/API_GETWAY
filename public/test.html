@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>API Gateway 測試工具</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+
+<body>
+    <div class="container">
+        <h1>API Gateway 測試工具</h1>
+        <p style="margin-bottom: 30px; color: var(--secondary-color);">測試 API Gateway 的各種端點功能</p>
+
+        <div class="card">
+            <h2>1. OpenData API 測試</h2>
+            <p style="color: var(--secondary-color); margin-bottom: 15px;">無需認證的公開資料 API</p>
+
+            <div class="form-group">
+                <label>回應格式</label>
+                <select id="opendata-format">
+                    <option value="json">JSON</option>
+                    <option value="csv">CSV</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label>端點路徑</label>
+                <input type="text" id="opendata-path" value="/opendata/health-centers" readonly>
+            </div>
+
+            <button class="btn-primary" onclick="testOpenData()">發送請求</button>
+
+            <div class="form-group">
+                <label>回應結果</label>
+                <pre class="code-block" id="opendata-result">結果將顯示在這裡...</pre>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>2. AI API 透傳測試</h2>
+            <p style="color: var(--secondary-color); margin-bottom: 15px;">測試透過 Gateway 呼叫 OpenAI</p>
+
+            <div class="form-group">
+                <label>Gateway API Key</label>
+                <input type="text" id="gateway-key" value="admin-key-12345" placeholder="例如: admin-key-12345">
+                <small style="color: var(--secondary-color);">用於驗證對 Gateway 的存取權限</small>
+            </div>
+
+            <div class="form-group">
+                <label>Target API Key (OpenAI)</label>
+                <input type="text" id="target-key" value="mock-openai-key" placeholder="例如: sk-proj-xxxxx">
+                <small style="color: var(--secondary-color);">使用 "mock-openai-key" 會返回模擬回應；使用真實 OpenAI Key 會呼叫實際 API</small>
+            </div>
+
+            <div class="form-group">
+                <label>訊息內容</label>
+                <textarea id="ai-message" rows="3" placeholder="輸入要發送給 AI 的訊息...">請簡單介紹雲林縣</textarea>
+            </div>
+
+            <button class="btn-primary" onclick="testAI()">發送請求</button>
+
+            <div class="form-group">
+                <label>回應結果</label>
+                <pre class="code-block" id="ai-result">結果將顯示在這裡...</pre>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>3. 一般 API 端點測試</h2>
+            <p style="color: var(--secondary-color); margin-bottom: 15px;">測試需要認證的資料 API</p>
+
+            <div class="form-group">
+                <label>API Key</label>
+                <input type="text" id="general-key" value="admin-key-12345" placeholder="輸入您的 API Key">
+            </div>
+
+            <div class="form-group">
+                <label>HTTP 方法</label>
+                <select id="general-method">
+                    <option value="GET">GET</option>
+                    <option value="POST">POST</option>
+                    <option value="PUT">PUT</option>
+                    <option value="DELETE">DELETE</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label>端點路徑</label>
+                <input type="text" id="general-path" value="/api/admin/stats" placeholder="例如: /api/admin/stats">
+            </div>
+
+            <div class="form-group">
+                <label>請求 Body (JSON，僅 POST/PUT)</label>
+                <textarea id="general-body" rows="4" placeholder='{"key": "value"}'></textarea>
+            </div>
+
+            <button class="btn-primary" onclick="testGeneral()">發送請求</button>
+
+            <div class="form-group">
+                <label>回應結果</label>
+                <pre class="code-block" id="general-result">結果將顯示在這裡...</pre>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>4. 流量限制測試</h2>
+            <p style="color: var(--secondary-color); margin-bottom: 15px;">連續發送多個請求來測試流量限制功能</p>
+
+            <div class="form-group">
+                <label>API Key</label>
+                <input type="text" id="ratelimit-key" value="admin-key-12345">
+            </div>
+
+            <div class="form-group">
+                <label>請求次數</label>
+                <input type="number" id="ratelimit-count" value="10" min="1" max="100">
+            </div>
+
+            <button class="btn-primary" onclick="testRateLimit()">開始測試</button>
+
+            <div class="form-group">
+                <label>測試結果</label>
+                <pre class="code-block" id="ratelimit-result">結果將顯示在這裡...</pre>
+            </div>
+        </div>
+
+        <div style="text-align: center; margin-top: 40px;">
+            <a href="index.html" class="btn-secondary">返回管理後台</a>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+    <script>
+        // 通用測試函數
+        async function testGeneral() {
+            const apiKey = document.getElementById('general-key').value;
+            const method = document.getElementById('general-method').value;
+            const path = document.getElementById('general-path').value;
+            const body = document.getElementById('general-body').value;
+            const resultPre = document.getElementById('general-result');
+
+            resultPre.textContent = 'Loading...';
+
+            try {
+                const options = {
+                    method: method,
+                    headers: {
+                        'X-Gateway-API-Key': apiKey,
+                        'Content-Type': 'application/json'
+                    }
+                };
+
+                if ((method === 'POST' || method === 'PUT') && body) {
+                    options.body = body;
+                }
+
+                const res = await fetch(`${API_BASE}${path}`, options);
+                const text = await res.text();
+
+                try {
+                    const json = JSON.parse(text);
+                    resultPre.textContent = JSON.stringify(json, null, 2);
+                } catch (e) {
+                    resultPre.textContent = text;
+                }
+            } catch (err) {
+                resultPre.textContent = 'Error: ' + err.message;
+            }
+        }
+
+        // 流量限制測試函數
+        async function testRateLimit() {
+            const apiKey = document.getElementById('ratelimit-key').value;
+            const count = parseInt(document.getElementById('ratelimit-count').value);
+            const resultPre = document.getElementById('ratelimit-result');
+
+            resultPre.textContent = '開始測試...\n\n';
+
+            const results = [];
+            const startTime = Date.now();
+
+            for (let i = 0; i < count; i++) {
+                try {
+                    const reqStart = Date.now();
+                    const res = await fetch(`${API_BASE}/api/admin/stats`, {
+                        headers: { 'X-Gateway-API-Key': apiKey }
+                    });
+                    const reqEnd = Date.now();
+
+                    const result = {
+                        index: i + 1,
+                        status: res.status,
+                        time: reqEnd - reqStart
+                    };
+                    results.push(result);
+
+                    resultPre.textContent += `請求 ${i + 1}/${count}: ${res.status} (${reqEnd - reqStart}ms)\n`;
+                } catch (err) {
+                    results.push({
+                        index: i + 1,
+                        status: 'ERROR',
+                        error: err.message
+                    });
+                    resultPre.textContent += `請求 ${i + 1}/${count}: ERROR - ${err.message}\n`;
+                }
+            }
+
+            const endTime = Date.now();
+            const totalTime = endTime - startTime;
+            const successCount = results.filter(r => r.status === 200).length;
+            const errorCount = results.filter(r => r.status === 429 || r.status === 'ERROR').length;
+
+            resultPre.textContent += `\n========== 測試完成 ==========\n`;
+            resultPre.textContent += `總請求數: ${count}\n`;
+            resultPre.textContent += `成功: ${successCount}\n`;
+            resultPre.textContent += `失敗/限流: ${errorCount}\n`;
+            resultPre.textContent += `總耗時: ${totalTime}ms\n`;
+            resultPre.textContent += `平均耗時: ${(totalTime / count).toFixed(2)}ms\n`;
+        }
+    </script>
+</body>
+
+</html>

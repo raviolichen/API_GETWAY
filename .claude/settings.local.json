@@ -1,0 +1,35 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(node -e:*)",
+      "Bash(npm rebuild:*)",
+      "Bash(node server.js:*)",
+      "Bash(curl:*)",
+      "Bash(for i in {1..3})",
+      "Bash(do echo \"Request $i:\")",
+      "Bash(done)",
+      "Bash(TEST_KEY=\"gw_c4e45c97ffb78c69b5a1e2a17fcca595655baafbaff107144e52c95247c86c95\":*)",
+      "Bash(for i in {1..7})",
+      "Bash(do echo \"=== Request $i ===\")",
+      "Bash(TEST_KEY=\"gw_08ef0b226edeb71267c2ceb1de3ba300510819f60dfc3f1681ebf240d7d763bd\":*)",
+      "Bash(echo \"=== 测试：使用流量限制为 3 次/小时的系统 ===\" echo \"\" echo \"1. 连续调用 5 次管理端点 /api/admin/stats（应该全部成功）：\" for i in {1..5})",
+      "Bash(do echo -n \"  请求 $i: \" curl -s -H \"X-Gateway-API-Key: $TEST_KEY\" http://localhost:3000/api/admin/stats)",
+      "Bash(for i in 1 2 3 4 5)",
+      "Bash(do echo \"请求$i:\")",
+      "Bash(TEST_KEY=\"gw_08ef0b226edeb71267c2ceb1de3ba300510819f60dfc3f1681ebf240d7d763bd\" echo:*)",
+      "Bash(head:*)",
+      "Bash(python3:*)",
+      "Bash(pkill:*)",
+      "Bash(sqlite3:*)",
+      "Bash(node test/schema-analysis.js:*)",
+      "Bash(node test/insert-test-rule.js:*)",
+      "Bash(node test/test-validation.js:*)",
+      "Bash(node test/analyze-regexp-patterns.js:*)",
+      "Bash(node test/compare-parsers.js:*)",
+      "Bash(node:*)",
+      "Bash(echo:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

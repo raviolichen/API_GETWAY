@@ -1,0 +1,12 @@
+{
+    "rule_name": "Health Centers CSV",
+    "endpoint_id": "ep_health",
+    "source_format": "json",
+    "target_format": "csv",
+    "transformation_type": "mapping",
+    "mapping_config": {
+        "Name": "Name",
+        "Code": "Code"
+    },
+    "is_active": 1
+}

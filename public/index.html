@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>API Gateway 管理後台</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+
+<body>
+    <div class="app-container">
+        <aside class="sidebar">
+            <div class="logo">
+                <h2>API Gateway</h2>
+            </div>
+            <nav>
+                <ul>
+                    <li><a href="#" class="active" data-tab="dashboard">儀表板</a></li>
+                    <li><a href="#" data-tab="api-management">API 管理</a></li>
+                    <li><a href="#" data-tab="system-management">系統管理</a></li>
+                    <li><a href="#" data-tab="transformations">資料轉換</a></li>
+                    <li><a href="#" data-tab="logs">日誌查詢</a></li>
+                    <li><a href="test.html" target="_blank">API 測試工具</a></li>
+                </ul>
+            </nav>
+        </aside>
+        <main class="content">
+            <header>
+                <h1>儀表板</h1>
+                <div class="user-profile">
+                    <span>Admin</span>
+                </div>
+            </header>
+
+            <div id="dashboard" class="tab-content active">
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <h3>總請求數</h3>
+                        <p class="stat-value" id="total-requests">Loading...</p>
+                    </div>
+                    <div class="stat-card">
+                        <h3>活躍端點</h3>
+                        <p class="stat-value" id="active-endpoints">Loading...</p>
+                    </div>
+                    <div class="stat-card">
+                        <h3>已連接系統</h3>
+                        <p class="stat-value" id="systems-connected">Loading...</p>
+                    </div>
+                </div>
+                <div class="chart-container">
+                    <h3>今日流量趨勢 (Mock)</h3>
+                    <div class="mock-chart">
+                        <!-- Mock Chart Visual -->
+                        <div class="bar" style="height: 40%"></div>
+                        <div class="bar" style="height: 70%"></div>
+                        <div class="bar" style="height: 50%"></div>
+                        <div class="bar" style="height: 90%"></div>
+                        <div class="bar" style="height: 60%"></div>
+                        <div class="bar" style="height: 30%"></div>
+                        <div class="bar" style="height: 80%"></div>
+                    </div>
+                </div>
+
+            </div>
+
+            <div id="api-management" class="tab-content">
+                <div class="section-header">
+                    <h2>API 端點列表</h2>
+                    <button class="btn-primary" onclick="openModal()">+ 新增端點</button>
+                </div>
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>名稱</th>
+                            <th>路徑</th>
+                            <th>目標 URL</th>
+                            <th>類型</th>
+                            <th>狀態</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody id="endpoints-table-body">
+                        <!-- Dynamic Content -->
+                    </tbody>
+                </table>
+            </div>
+
+            <div id="system-management" class="tab-content">
+                <div class="section-header">
+                    <h2>已註冊系統</h2>
+                    <button class="btn-primary" onclick="openSystemModal()">+ 新增系統</button>
+                </div>
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>系統名稱</th>
+                            <th>API Key</th>
+                            <th>流量限制 (次/小時)</th>
+                            <th>IP 白名單</th>
+                            <th>已授權端點</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody id="systems-table-body">
+                        <!-- Dynamic Content -->
+                    </tbody>
+                </table>
+            </div>
+
+            <div id="logs" class="tab-content">
+                <h2>最近請求日誌</h2>
+                <button id="refresh-logs" class="btn-primary">重新整理</button>
+                <table class="data-table" id="logs-table">
+                    <thead>
+                        <tr>
+                            <th>時間</th>
+                            <th>系統</th>
+                            <th>端點名稱</th>
+                            <th>路徑</th>
+                            <th>HTTP 狀態</th>
+                            <th>回應時間</th>
+                        </tr>
+                    </thead>
+                    <tbody id="logs-body">
+                        <!-- Logs will be populated here -->
+                    </tbody>
+                </table>
+            </div>
+
+            <div id="transformations" class="tab-content">
+                <div class="section-header">
+                    <h2>資料轉換規則</h2>
+                    <div class="transformer-actions">
+                        <button class="btn-primary" id="btn-save-rule">儲存規則</button>
+                        <button class="btn-secondary" id="btn-reset-flow">重置</button>
+                        <button class="btn-primary" id="btn-copy-rule">複製規則 JSON</button>
+                    </div>
+                </div>
+
+                <div class="rule-list-card">
+                    <div class="section-header">
+                        <div>
+                            <h3>已儲存規則</h3>
+                            <p id="editing-indicator" class="subtle-text">目前編輯：尚未選擇</p>
+                        </div>
+                        <div class="transformer-actions">
+                            <button class="btn-secondary" id="btn-new-rule">新增空白規則</button>
+                            <button class="btn-primary" id="btn-refresh-rules">重新整理</button>
+                        </div>
+                    </div>
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>名稱</th>
+                                <th>端點</th>
+                                <th>格式</th>
+                                <th>類型</th>
+                                <th>更新時間</th>
+                                <th>狀態</th>
+                                <th>操作</th>
+                            </tr>
+                        </thead>
+                        <tbody id="transformations-table-body">
+                            <tr>
+                                <td colspan="6" style="text-align: center; color: var(--secondary-color);">尚未載入規則</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="rule-meta-card">
+                    <div class="rule-meta-grid">
+                        <div class="form-group">
+                            <label>規則名稱</label>
+                            <input type="text" id="rule-name" placeholder="例如：HMIS 醫院資料轉換">
+                        </div>
+                        <div class="form-group">
+                            <label>套用端點</label>
+                            <select id="rule-endpoint">
+                                <option value="">未綁定（僅供預覽/測試）</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>描述</label>
+                            <input type="text" id="rule-description" placeholder="請輸入用途或備註">
+                        </div>
+                        <div class="form-group">
+                            <label>來源格式</label>
+                            <select id="rule-source-format">
+                                <option value="json">JSON</option>
+                                <option value="csv">CSV</option>
+                                <option value="xml">XML</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>目標格式</label>
+                            <select id="rule-target-format">
+                                <option value="json">JSON</option>
+                                <option value="csv">CSV</option>
+                                <option value="xml">XML</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>轉換模式</label>
+                            <select id="rule-mode">
+                                <option value="template">模板填塞</option>
+                                <option value="mapping">字段映射</option>
+                                <option value="hybrid">Hybrid</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>測試來源 URL</label>
+                            <input type="text" id="rule-test-url" placeholder="https://example.com/data.json">
+                        </div>
+                        <div class="form-group">
+                            <label>啟用狀態</label>
+                            <select id="rule-active">
+                                <option value="1">啟用</option>
+                                <option value="0">停用</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="rule-sample-card">
+                    <div class="form-group">
+                        <label>樣例輸入</label>
+                        <textarea id="rule-sample-input" rows="5" placeholder='{"data": []}'></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label>期望輸出</label>
+                        <textarea id="rule-expected-output" rows="5" placeholder='{"result": []}'></textarea>
+                    </div>
+                </div>
+
+                <div class="transformer-layout">
+                    <div class="module-palette" id="module-palette">
+                        <h3>模塊庫</h3>
+                        <p class="palette-helper">拖拽式流程，每個模塊都是一個步驟</p>
+                        <div class="palette-list">
+                            <!-- 動態填充 -->
+                        </div>
+                    </div>
+
+                    <div class="flow-canvas-wrapper">
+                        <div class="flow-canvas" id="flow-canvas">
+                            <div class="empty-flow-state">
+                                <p>從左側拖拉模塊來建立資料流程</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="module-inspector" id="module-inspector">
+                        <h3>模塊設定</h3>
+                        <p class="inspector-placeholder">請選擇一個模塊來編輯</p>
+                    </div>
+                </div>
+
+                <div class="preview-card">
+                    <div class="preview-header">
+                        <h3>規則結構預覽</h3>
+                        <div class="preview-actions">
+                            <button class="btn-secondary" id="btn-run-preview">執行轉換預覽</button>
+                            <span id="preview-status" class="preview-status">未儲存</span>
+                        </div>
+                    </div>
+                    <textarea id="rule-preview" readonly></textarea>
+                </div>
+
+                <div class="preview-card">
+                    <div class="preview-header">
+                        <h3>轉換輸出</h3>
+                        <span id="preview-meta" class="preview-status">尚未執行</span>
+                    </div>
+                    <textarea id="rule-output" readonly placeholder="尚未執行預覽"></textarea>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Endpoint Modal -->
+    <div id="endpoint-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="modal-title">新增端點</h3>
+                <span class="close" onclick="closeModal()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="endpoint-id">
+                <div class="form-group">
+                    <label>名稱</label>
+                    <input type="text" id="endpoint-name" placeholder="例如: Health Centers">
+                </div>
+                <div class="form-group">
+                    <label>Gateway 路徑</label>
+                    <input type="text" id="endpoint-path" placeholder="例如: /opendata/health-centers">
+                </div>
+                <div class="form-group">
+                    <label>目標 URL</label>
+                    <input type="text" id="endpoint-target" placeholder="例如: https://api.example.com/data">
+                </div>
+                <div class="form-group">
+                    <label>類型</label>
+                    <select id="endpoint-type">
+                        <option value="data">Data Proxy</option>
+                        <option value="ai_passthrough">AI Passthrough</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Timeout (秒)</label>
+                    <input type="number" id="endpoint-timeout" value="30">
+                </div>
+                <div class="form-group">
+                    <label>狀態</label>
+                    <select id="endpoint-active">
+                        <option value="1">啟用</option>
+                        <option value="0">停用</option>
+                    </select>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" onclick="closeModal()">取消</button>
+                <button class="btn-primary" onclick="saveEndpoint()">儲存</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- System Modal -->
+    <div id="system-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="system-modal-title">新增系統</h3>
+                <span class="close" onclick="closeSystemModal()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="system-id">
+                <div class="form-group">
+                    <label>系統名稱</label>
+                    <input type="text" id="system-name" placeholder="例如: 健檢系統">
+                </div>
+                <div class="form-group">
+                    <label>流量限制 (次/小時)</label>
+                    <input type="number" id="system-rate-limit" value="1000" min="1">
+                </div>
+                <div class="form-group">
+                    <label>IP 白名單</label>
+                    <textarea id="system-ip-whitelist" rows="3" placeholder="每行一個 IP，例如:&#10;192.168.1.100&#10;203.66.*.* "></textarea>
+                    <small style="color: var(--secondary-color);">留空表示不限制 IP。支援通配符 *</small>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" onclick="closeSystemModal()">取消</button>
+                <button class="btn-primary" onclick="saveSystem()">儲存</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Permission Modal -->
+    <div id="permission-modal" class="modal">
+        <div class="modal-content" style="width: 600px;">
+            <div class="modal-header">
+                <h3 id="permission-modal-title">管理 API 端點授權</h3>
+                <span class="close" onclick="closePermissionModal()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="permission-system-id">
+                <p style="margin-bottom: 15px; color: var(--secondary-color);">
+                    系統: <strong id="permission-system-name"></strong>
+                </p>
+                <div class="form-group">
+                    <label>選擇允許存取的 API 端點</label>
+                    <div id="endpoints-checklist" style="max-height: 400px; overflow-y: auto; border: 1px solid var(--border-color); padding: 10px; border-radius: 4px;">
+                        <!-- Checkboxes will be populated here -->
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" onclick="closePermissionModal()">取消</button>
+                <button class="btn-primary" onclick="savePermissions()">儲存授權</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- API Key Display Modal -->
+    <div id="apikey-modal" class="modal">
+        <div class="modal-content" style="width: 500px;">
+            <div class="modal-header">
+                <h3>API Key 已生成</h3>
+                <span class="close" onclick="closeApiKeyModal()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <p style="color: var(--warning-color); margin-bottom: 15px;">
+                    <strong>請妥善保存此 Key，關閉後將無法再次查看完整內容！</strong>
+                </p>
+                <div class="form-group">
+                    <label>新的 API Key</label>
+                    <div style="display: flex; gap: 10px;">
+                        <input type="text" id="apikey-display" readonly style="flex: 1; font-family: monospace; background: #f1f5f9;">
+                        <button class="btn-primary" onclick="copyApiKey()">複製</button>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-primary" onclick="closeApiKeyModal()">我已保存</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+    <script src="transformation.js"></script>
+</body>
+
+</html>
