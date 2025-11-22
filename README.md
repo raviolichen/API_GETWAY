@@ -71,7 +71,7 @@
 
 10. **日誌與監控**
     - 請求日誌記錄
-    - 響應時間追蹤
+    - 回應時間追蹤
     - 系統統計資訊
 
 11. **管理後台**
@@ -359,7 +359,7 @@ curl -X POST \
 
 ## License
 
-This project is for internal use by the Yunlin County Health Bureau.
+CC BY-NC
 
 ## Contact
 

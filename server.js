@@ -4,10 +4,12 @@ const bodyParser = require('body-parser');
 const db = require('./database');
 const crypto = require('crypto');
 const DataTransformer = require('./transformer');
+const AlertMonitor = require('./alert-monitor');
 
 const app = express();
 const PORT = 3000;
 const transformer = new DataTransformer();
+const alertMonitor = new AlertMonitor();
 
 app.use(cors());
 app.use(bodyParser.json());
@@ -107,8 +109,20 @@ const authenticateAndRateLimit = (req, res, next) => {
 
 // 2. Logging Middleware
 app.use((req, res, next) => {
-    // Skip logging for admin endpoints to avoid inflating request count
-    if (req.path.startsWith('/api/admin/')) {
+    // Skip logging for:
+    // - Admin endpoints
+    // - Static files (HTML, CSS, JS, images, etc.)
+    // - Root path
+    if (
+        req.path.startsWith('/api/admin/') ||
+        req.path === '/' ||
+        req.path.endsWith('.html') ||
+        req.path.endsWith('.css') ||
+        req.path.endsWith('.js') ||
+        req.path.endsWith('.png') ||
+        req.path.endsWith('.jpg') ||
+        req.path.endsWith('.ico')
+    ) {
         return next();
     }
 
@@ -119,20 +133,22 @@ app.use((req, res, next) => {
         const duration = Date.now() - start;
         const logId = crypto.randomUUID();
 
-        // Mask API Keys in headers for logging (if we were logging headers)
-        // Here we log to DB
-
         const systemId = req.system ? req.system.system_id : null;
-        // Resolve endpoint_id based on path (simplified)
-        let endpointId = null;
-        // In a real app, we'd match the route to the endpoint_id.
 
-        db.run(`INSERT INTO request_logs (log_id, request_id, system_id, endpoint_id, http_status, response_time_ms)
-                VALUES (?, ?, ?, ?, ?, ?)`,
-            [logId, crypto.randomUUID(), systemId, endpointId, res.statusCode, duration],
-            (err) => {
-                if (err) console.error("Logging error:", err);
-            });
+        // Resolve endpoint_id based on path
+        db.get("SELECT endpoint_id FROM api_endpoints WHERE gateway_path = ?", [req.path], (err, endpoint) => {
+            const endpointId = endpoint ? endpoint.endpoint_id : null;
+
+            // Only log if we found a matching endpoint (real business API request)
+            if (endpointId) {
+                db.run(`INSERT INTO request_logs (log_id, request_id, system_id, endpoint_id, http_status, response_time_ms)
+                        VALUES (?, ?, ?, ?, ?, ?)`,
+                    [logId, crypto.randomUUID(), systemId, endpointId, res.statusCode, duration],
+                    (err) => {
+                        if (err) console.error("Logging error:", err);
+                    });
+            }
+        });
 
         originalSend.call(this, body);
     };
@@ -312,7 +328,34 @@ app.post('/external/xai/chat', async (req, res) => {
 
 // 3. Admin API Endpoints
 app.get('/api/admin/stats', (req, res) => {
-    // Return stats including hourly data for chart
+    const period = req.query.period || 'today';
+
+    // Configure time filter and grouping based on period
+    let timeFilter, groupBy, timeLabel, dataPoints;
+
+    switch (period) {
+        case 'week':
+            timeFilter = "datetime('now', '-7 days')";
+            groupBy = "strftime('%Y-%m-%d', created_at)";
+            timeLabel = 'date';
+            dataPoints = 7;
+            break;
+        case 'month':
+            timeFilter = "datetime('now', '-30 days')";
+            groupBy = "strftime('%Y-%m-%d', created_at)";
+            timeLabel = 'date';
+            dataPoints = 30;
+            break;
+        case 'today':
+        default:
+            timeFilter = "datetime('now', '-24 hours')";
+            groupBy = "strftime('%H', created_at)";
+            timeLabel = 'hour';
+            dataPoints = 24;
+            break;
+    }
+
+    // Return stats including traffic data for chart
     db.get("SELECT COUNT(*) as count FROM request_logs", (err, row) => {
         if (err) return res.status(500).json({ error: err.message });
 
@@ -321,50 +364,104 @@ app.get('/api/admin/stats', (req, res) => {
             db.get("SELECT COUNT(*) as count FROM systems", (err, sysRow) => {
                 if (err) return res.status(500).json({ error: err.message });
 
-                // Get hourly request counts for the last 24 hours
-                const hourlyQuery = `
-                    SELECT 
-                        strftime('%H', created_at) as hour,
+                // Get traffic data based on period
+                const trafficQuery = `
+                    SELECT
+                        ${groupBy} as time_unit,
                         COUNT(*) as count
                     FROM request_logs
-                    WHERE created_at >= datetime('now', '-24 hours')
-                    GROUP BY hour
-                    ORDER BY hour
+                    WHERE created_at >= ${timeFilter}
+                    GROUP BY time_unit
+                    ORDER BY time_unit
                 `;
 
-                db.all(hourlyQuery, (err, hourlyData) => {
+                db.all(trafficQuery, (err, trafficData) => {
                     if (err) {
-                        // If error, return basic stats without hourly data
+                        // If error, return basic stats without traffic data
                         return res.json({
                             total_requests: row.count,
                             active_endpoints: epRow.count,
                             systems_connected: sysRow.count,
-                            hourly_requests: []
+                            traffic_data: [],
+                            api_usage: []
                         });
                     }
 
-                    // Fill in missing hours with zero counts
-                    const hourlyMap = {};
-                    hourlyData.forEach(item => {
-                        hourlyMap[parseInt(item.hour)] = item.count;
-                    });
-
-                    // Get current hour and generate last 7 hours of data
+                    // Process traffic data based on period
+                    let processedTraffic = [];
                     const now = new Date();
-                    const hourlyRequests = [];
-                    for (let i = 6; i >= 0; i--) {
-                        const targetHour = (now.getHours() - i + 24) % 24;
-                        hourlyRequests.push({
-                            hour: targetHour,
-                            count: hourlyMap[targetHour] || 0
+
+                    if (period === 'today') {
+                        // Fill in missing hours with zero counts
+                        const hourlyMap = {};
+                        trafficData.forEach(item => {
+                            hourlyMap[parseInt(item.time_unit)] = item.count;
                         });
+
+                        // Generate last 24 hours of data
+                        for (let i = 23; i >= 0; i--) {
+                            const targetHour = (now.getHours() - i + 24) % 24;
+                            processedTraffic.push({
+                                label: `${String(targetHour).padStart(2, '0')}:00`,
+                                count: hourlyMap[targetHour] || 0
+                            });
+                        }
+                    } else {
+                        // For week/month, fill in missing dates
+                        const dateMap = {};
+                        trafficData.forEach(item => {
+                            dateMap[item.time_unit] = item.count;
+                        });
+
+                        const daysBack = period === 'week' ? 7 : 30;
+                        for (let i = daysBack - 1; i >= 0; i--) {
+                            const targetDate = new Date(now);
+                            targetDate.setDate(targetDate.getDate() - i);
+                            const dateStr = targetDate.toISOString().split('T')[0];
+
+                            processedTraffic.push({
+                                label: dateStr,
+                                count: dateMap[dateStr] || 0
+                            });
+                        }
                     }
 
-                    res.json({
-                        total_requests: row.count,
-                        active_endpoints: epRow.count,
-                        systems_connected: sysRow.count,
-                        hourly_requests: hourlyRequests
+                    // Get API endpoint usage statistics
+                    const apiUsageQuery = `
+                        SELECT
+                            e.name,
+                            e.api_type,
+                            COUNT(*) as count
+                        FROM request_logs rl
+                        INNER JOIN api_endpoints e ON rl.endpoint_id = e.endpoint_id
+                        WHERE rl.created_at >= ${timeFilter}
+                            AND rl.endpoint_id IS NOT NULL
+                        GROUP BY e.endpoint_id, e.name, e.api_type
+                        ORDER BY count DESC
+                        LIMIT 10
+                    `;
+
+                    db.all(apiUsageQuery, (err, apiUsageData) => {
+                        if (err) {
+                            // If error getting API usage, return without it
+                            return res.json({
+                                total_requests: row.count,
+                                active_endpoints: epRow.count,
+                                systems_connected: sysRow.count,
+                                traffic_data: processedTraffic,
+                                api_usage: [],
+                                period: period
+                            });
+                        }
+
+                        res.json({
+                            total_requests: row.count,
+                            active_endpoints: epRow.count,
+                            systems_connected: sysRow.count,
+                            traffic_data: processedTraffic,
+                            api_usage: apiUsageData || [],
+                            period: period
+                        });
                     });
                 });
             });
@@ -373,34 +470,74 @@ app.get('/api/admin/stats', (req, res) => {
 });
 
 app.get('/api/admin/logs', (req, res) => {
-    const query = `
-        SELECT
-            rl.log_id,
-            rl.request_id,
-            rl.http_status,
-            rl.response_time_ms,
-            rl.created_at,
-            s.system_name,
-            e.name as endpoint_name,
-            e.gateway_path
-        FROM request_logs rl
-        LEFT JOIN systems s ON rl.system_id = s.system_id
-        LEFT JOIN api_endpoints e ON rl.endpoint_id = e.endpoint_id
-        ORDER BY rl.created_at DESC
-        LIMIT 50
-    `;
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 20;
+    const offset = (page - 1) * limit;
 
-    db.all(query, (err, rows) => {
+    // Get total count
+    db.get("SELECT COUNT(*) as total FROM request_logs", (err, countRow) => {
         if (err) return res.status(500).json({ error: err.message });
-        res.json(rows);
+
+        const total = countRow.total;
+        const totalPages = Math.ceil(total / limit);
+
+        const query = `
+            SELECT
+                rl.log_id,
+                rl.request_id,
+                rl.http_status,
+                rl.response_time_ms,
+                rl.created_at,
+                s.system_name,
+                e.name as endpoint_name,
+                e.gateway_path
+            FROM request_logs rl
+            LEFT JOIN systems s ON rl.system_id = s.system_id
+            LEFT JOIN api_endpoints e ON rl.endpoint_id = e.endpoint_id
+            ORDER BY rl.created_at DESC
+            LIMIT ? OFFSET ?
+        `;
+
+        db.all(query, [limit, offset], (err, rows) => {
+            if (err) return res.status(500).json({ error: err.message });
+            res.json({
+                data: rows,
+                pagination: {
+                    page,
+                    limit,
+                    total,
+                    totalPages
+                }
+            });
+        });
     });
 });
 
 // Get all endpoints
 app.get('/api/admin/endpoints', (req, res) => {
-    db.all("SELECT * FROM api_endpoints", (err, rows) => {
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const offset = (page - 1) * limit;
+
+    // Get total count
+    db.get("SELECT COUNT(*) as total FROM api_endpoints", (err, countRow) => {
         if (err) return res.status(500).json({ error: err.message });
-        res.json(rows);
+
+        const total = countRow.total;
+        const totalPages = Math.ceil(total / limit);
+
+        db.all("SELECT * FROM api_endpoints LIMIT ? OFFSET ?", [limit, offset], (err, rows) => {
+            if (err) return res.status(500).json({ error: err.message });
+            res.json({
+                data: rows,
+                pagination: {
+                    page,
+                    limit,
+                    total,
+                    totalPages
+                }
+            });
+        });
     });
 });
 
@@ -445,15 +582,35 @@ app.delete('/api/admin/endpoints/:id', (req, res) => {
 
 // Get all systems
 app.get('/api/admin/systems', (req, res) => {
-    db.all("SELECT * FROM systems", (err, rows) => {
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const offset = (page - 1) * limit;
+
+    // Get total count
+    db.get("SELECT COUNT(*) as total FROM systems", (err, countRow) => {
         if (err) return res.status(500).json({ error: err.message });
-        // Mask API keys for security - but we can't show the original key anymore
-        const maskedRows = rows.map(row => ({
-            ...row,
-            api_key_display: '(已加密存儲)',
-            api_key_hash: undefined // Don't expose hash
-        }));
-        res.json(maskedRows);
+
+        const total = countRow.total;
+        const totalPages = Math.ceil(total / limit);
+
+        db.all("SELECT * FROM systems LIMIT ? OFFSET ?", [limit, offset], (err, rows) => {
+            if (err) return res.status(500).json({ error: err.message });
+            // Mask API keys for security - but we can't show the original key anymore
+            const maskedRows = rows.map(row => ({
+                ...row,
+                api_key_display: '(已加密存儲)',
+                api_key_hash: undefined // Don't expose hash
+            }));
+            res.json({
+                data: maskedRows,
+                pagination: {
+                    page,
+                    limit,
+                    total,
+                    totalPages
+                }
+            });
+        });
     });
 });
 
@@ -924,6 +1081,252 @@ app.delete('/api/admin/cache/:key', (req, res) => {
     } else {
         res.status(404).json({ error: "Cache entry not found" });
     }
+});
+
+// ==================== Alert Management API ====================
+
+// Get all alert rules
+app.get('/api/admin/alerts/rules', (req, res) => {
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 20;
+    const offset = (page - 1) * limit;
+
+    db.get("SELECT COUNT(*) as total FROM alert_rules", (err, countRow) => {
+        if (err) return res.status(500).json({ error: err.message });
+
+        const total = countRow.total;
+        const totalPages = Math.ceil(total / limit);
+
+        db.all("SELECT * FROM alert_rules ORDER BY created_at DESC LIMIT ? OFFSET ?", [limit, offset], (err, rows) => {
+            if (err) return res.status(500).json({ error: err.message });
+            res.json({
+                data: rows,
+                pagination: {
+                    page,
+                    limit,
+                    total,
+                    totalPages
+                }
+            });
+        });
+    });
+});
+
+// Get single alert rule
+app.get('/api/admin/alerts/rules/:id', (req, res) => {
+    const { id } = req.params;
+    db.get("SELECT * FROM alert_rules WHERE rule_id = ?", [id], (err, row) => {
+        if (err) return res.status(500).json({ error: err.message });
+        if (!row) return res.status(404).json({ error: 'Alert rule not found' });
+        res.json(row);
+    });
+});
+
+// Create alert rule
+app.post('/api/admin/alerts/rules', (req, res) => {
+    const {
+        rule_name,
+        rule_type,
+        description,
+        target_type,
+        target_id,
+        threshold_value,
+        threshold_unit,
+        time_window,
+        notification_channels,
+        email_recipients,
+        webhook_url,
+        is_active
+    } = req.body;
+
+    if (!rule_name || !rule_type || !target_type || threshold_value === undefined) {
+        return res.status(400).json({ error: 'Missing required fields' });
+    }
+
+    const rule_id = crypto.randomUUID();
+
+    db.run(
+        `INSERT INTO alert_rules (
+            rule_id, rule_name, rule_type, description, target_type, target_id,
+            threshold_value, threshold_unit, time_window, notification_channels,
+            email_recipients, webhook_url, is_active
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+            rule_id, rule_name, rule_type, description || null, target_type, target_id || null,
+            threshold_value, threshold_unit || '', time_window || 300,
+            notification_channels ? JSON.stringify(notification_channels) : '[]',
+            email_recipients || null, webhook_url || null, is_active !== false ? 1 : 0
+        ],
+        function (err) {
+            if (err) return res.status(500).json({ error: err.message });
+            res.status(201).json({ id: rule_id, message: "Alert rule created" });
+        }
+    );
+});
+
+// Update alert rule
+app.put('/api/admin/alerts/rules/:id', (req, res) => {
+    const { id } = req.params;
+    const {
+        rule_name,
+        rule_type,
+        description,
+        target_type,
+        target_id,
+        threshold_value,
+        threshold_unit,
+        time_window,
+        notification_channels,
+        email_recipients,
+        webhook_url,
+        is_active
+    } = req.body;
+
+    db.run(
+        `UPDATE alert_rules SET
+            rule_name = ?, rule_type = ?, description = ?, target_type = ?, target_id = ?,
+            threshold_value = ?, threshold_unit = ?, time_window = ?, notification_channels = ?,
+            email_recipients = ?, webhook_url = ?, is_active = ?, updated_at = CURRENT_TIMESTAMP
+        WHERE rule_id = ?`,
+        [
+            rule_name, rule_type, description, target_type, target_id,
+            threshold_value, threshold_unit, time_window,
+            notification_channels ? JSON.stringify(notification_channels) : '[]',
+            email_recipients, webhook_url, is_active ? 1 : 0, id
+        ],
+        function (err) {
+            if (err) return res.status(500).json({ error: err.message });
+            if (this.changes === 0) return res.status(404).json({ error: 'Alert rule not found' });
+            res.json({ message: "Alert rule updated" });
+        }
+    );
+});
+
+// Delete alert rule
+app.delete('/api/admin/alerts/rules/:id', (req, res) => {
+    const { id } = req.params;
+    db.run("DELETE FROM alert_rules WHERE rule_id = ?", [id], function (err) {
+        if (err) return res.status(500).json({ error: err.message });
+        if (this.changes === 0) return res.status(404).json({ error: 'Alert rule not found' });
+        res.json({ message: "Alert rule deleted" });
+    });
+});
+
+// Get alert history
+app.get('/api/admin/alerts/history', (req, res) => {
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 20;
+    const offset = (page - 1) * limit;
+    const status = req.query.status; // Filter by status
+    const ruleId = req.query.rule_id; // Filter by rule
+
+    let whereClause = '';
+    const params = [];
+
+    if (status) {
+        whereClause = 'WHERE status = ?';
+        params.push(status);
+    }
+
+    if (ruleId) {
+        whereClause = whereClause ? `${whereClause} AND rule_id = ?` : 'WHERE rule_id = ?';
+        params.push(ruleId);
+    }
+
+    db.get(`SELECT COUNT(*) as total FROM alert_history ${whereClause}`, params, (err, countRow) => {
+        if (err) return res.status(500).json({ error: err.message });
+
+        const total = countRow.total;
+        const totalPages = Math.ceil(total / limit);
+
+        db.all(
+            `SELECT * FROM alert_history ${whereClause} ORDER BY created_at DESC LIMIT ? OFFSET ?`,
+            [...params, limit, offset],
+            (err, rows) => {
+                if (err) return res.status(500).json({ error: err.message });
+                res.json({
+                    data: rows,
+                    pagination: {
+                        page,
+                        limit,
+                        total,
+                        totalPages
+                    }
+                });
+            }
+        );
+    });
+});
+
+// Acknowledge/Resolve alert
+app.patch('/api/admin/alerts/history/:id', (req, res) => {
+    const { id } = req.params;
+    const { status } = req.body;
+
+    if (!['active', 'acknowledged', 'resolved'].includes(status)) {
+        return res.status(400).json({ error: 'Invalid status' });
+    }
+
+    const resolvedAt = status === 'resolved' ? new Date().toISOString() : null;
+
+    db.run(
+        "UPDATE alert_history SET status = ?, resolved_at = ? WHERE alert_id = ?",
+        [status, resolvedAt, id],
+        function (err) {
+            if (err) return res.status(500).json({ error: err.message });
+            if (this.changes === 0) return res.status(404).json({ error: 'Alert not found' });
+            res.json({ message: "Alert status updated" });
+        }
+    );
+});
+
+// Get alert statistics
+app.get('/api/admin/alerts/stats', (req, res) => {
+    const period = req.query.period || 'today';
+
+    let timeFilter;
+    switch (period) {
+        case 'week':
+            timeFilter = "datetime('now', '-7 days')";
+            break;
+        case 'month':
+            timeFilter = "datetime('now', '-30 days')";
+            break;
+        case 'today':
+        default:
+            timeFilter = "datetime('now', '-24 hours')";
+            break;
+    }
+
+    db.get(`
+        SELECT
+            COUNT(*) as total_alerts,
+            SUM(CASE WHEN status = 'active' THEN 1 ELSE 0 END) as active_alerts,
+            SUM(CASE WHEN status = 'resolved' THEN 1 ELSE 0 END) as resolved_alerts,
+            SUM(CASE WHEN alert_level = 'critical' THEN 1 ELSE 0 END) as critical_alerts
+        FROM alert_history
+        WHERE created_at >= ${timeFilter}
+    `, (err, stats) => {
+        if (err) return res.status(500).json({ error: err.message });
+
+        // Get alert trends
+        db.all(`
+            SELECT
+                strftime('%Y-%m-%d %H:00:00', created_at) as hour,
+                COUNT(*) as count
+            FROM alert_history
+            WHERE created_at >= ${timeFilter}
+            GROUP BY hour
+            ORDER BY hour
+        `, (err, trends) => {
+            if (err) return res.status(500).json({ error: err.message });
+
+            res.json({
+                stats,
+                trends: trends || []
+            });
+        });
+    });
 });
 
 // 8. OpenData helpers: export validation template CSV (user fills rules)
@@ -1685,6 +2088,17 @@ function checkRateLimit(system, callback) {
     db.run("DELETE FROM rate_limit_tracking WHERE window_start < ?", [twoHoursAgo]);
 }
 
+// 启动告警监控服务
+alertMonitor.start();
+
 app.listen(PORT, () => {
     console.log(`API Gateway running on http://localhost:${PORT}`);
+    console.log('Alert monitoring service started');
+});
+
+// 优雅关闭
+process.on('SIGINT', () => {
+    console.log('\n正在关闭服务...');
+    alertMonitor.stop();
+    process.exit(0);
 });

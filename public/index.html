@@ -23,6 +23,7 @@
                     <li><a href="#" data-tab="api-management">API 管理</a></li>
                     <li><a href="#" data-tab="system-management">系統管理</a></li>
                     <li><a href="#" data-tab="transformations">資料轉換</a></li>
+                    <li><a href="#" data-tab="alerts">告警管理</a></li>
                     <li><a href="#" data-tab="logs">日誌查詢</a></li>
                     <li><a href="test.html" target="_blank">API 測試工具</a></li>
                 </ul>
@@ -50,10 +51,42 @@
                         <h3>已連接系統</h3>
                         <p class="stat-value" id="systems-connected">Loading...</p>
                     </div>
+                    <div class="stat-card alert-card">
+                        <h3>活躍告警</h3>
+                        <p class="stat-value" id="active-alerts">
+                            <span class="alert-count">0</span>
+                        </p>
+                    </div>
                 </div>
-                <div class="chart-container">
-                    <h3>今日流量趨勢 (Mock)</h3>
-                    <div class="mock-chart">
+
+                <div class="charts-section">
+                    <div class="charts-control-bar">
+                        <h2>資料分析</h2>
+                        <div class="time-filters">
+                            <button class="filter-btn active" data-period="today">今日</button>
+                            <button class="filter-btn" data-period="week">本週</button>
+                            <button class="filter-btn" data-period="month">本月</button>
+                        </div>
+                    </div>
+
+                    <div class="charts-row">
+                        <div class="chart-container">
+                            <div class="chart-header">
+                                <h3>流量趨勢</h3>
+                            </div>
+                            <div class="chart-content" id="traffic-chart">
+                                <div class="chart-loading">載入中...</div>
+                            </div>
+                        </div>
+
+                        <div class="chart-container">
+                            <div class="chart-header">
+                                <h3>API 使用排行</h3>
+                            </div>
+                            <div class="api-usage-content" id="api-usage-chart">
+                                <div class="chart-loading">載入中...</div>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
@@ -81,6 +114,7 @@
                         </tbody>
                     </table>
                 </div>
+                <div id="endpoints-pagination"></div>
             </div>
 
             <div id="system-management" class="tab-content">
@@ -105,11 +139,73 @@
                         </tbody>
                     </table>
                 </div>
+                <div id="systems-pagination"></div>
+            </div>
+
+            <div id="alerts" class="tab-content">
+                <div class="section-header">
+                    <h2>告警規則</h2>
+                    <button class="btn-primary" onclick="openAlertRuleModal()">+ 新增告警規則</button>
+                </div>
+                <div class="table-responsive">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>規則名稱</th>
+                                <th>類型</th>
+                                <th>監控目標</th>
+                                <th>閾值</th>
+                                <th>時間窗口</th>
+                                <th>通知方式</th>
+                                <th>狀態</th>
+                                <th>操作</th>
+                            </tr>
+                        </thead>
+                        <tbody id="alert-rules-table-body">
+                            <!-- Dynamic Content -->
+                        </tbody>
+                    </table>
+                </div>
+                <div id="alert-rules-pagination"></div>
+
+                <div class="section-header" style="margin-top: 40px;">
+                    <h2>告警歷史</h2>
+                    <div>
+                        <select id="alert-status-filter" class="filter-select" onchange="filterAlertHistory()">
+                            <option value="">全部狀態</option>
+                            <option value="active">活躍</option>
+                            <option value="acknowledged">已確認</option>
+                            <option value="resolved">已解決</option>
+                        </select>
+                        <button class="btn-secondary" onclick="refreshAlertHistory()">重新整理</button>
+                    </div>
+                </div>
+                <div class="table-responsive">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>時間</th>
+                                <th>規則名稱</th>
+                                <th>告警級別</th>
+                                <th>告警消息</th>
+                                <th>指標值</th>
+                                <th>狀態</th>
+                                <th>操作</th>
+                            </tr>
+                        </thead>
+                        <tbody id="alert-history-table-body">
+                            <!-- Dynamic Content -->
+                        </tbody>
+                    </table>
+                </div>
+                <div id="alert-history-pagination"></div>
             </div>
 
             <div id="logs" class="tab-content">
-                <h2>最近請求日誌</h2>
-                <button id="refresh-logs" class="btn-primary">重新整理</button>
+                <div class="section-header">
+                    <h2>最近請求日誌</h2>
+                    <button id="refresh-logs" class="btn-primary">重新整理</button>
+                </div>
                 <div class="table-responsive">
                     <table class="data-table" id="logs-table">
                         <thead>
@@ -127,6 +223,7 @@
                         </tbody>
                     </table>
                 </div>
+                <div id="logs-pagination"></div>
             </div>
 
             <div id="transformations" class="tab-content">
@@ -414,8 +511,93 @@
         </div>
     </div>
 
+    <!-- Alert Rule Modal -->
+    <div id="alert-rule-modal" class="modal">
+        <div class="modal-content" style="width: 600px;">
+            <div class="modal-header">
+                <h3 id="alert-rule-modal-title">新增告警規則</h3>
+                <span class="close" onclick="closeAlertRuleModal()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="alert-rule-id">
+                <div class="form-group">
+                    <label>規則名稱</label>
+                    <input type="text" id="alert-rule-name" placeholder="例如：API 錯誤率告警">
+                </div>
+                <div class="form-group">
+                    <label>告警類型</label>
+                    <select id="alert-rule-type">
+                        <option value="error_rate">錯誤率</option>
+                        <option value="response_time">回應時間</option>
+                        <option value="traffic_anomaly">流量異常</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>描述</label>
+                    <textarea id="alert-rule-description" rows="2" placeholder="告警規則描述"></textarea>
+                </div>
+                <div class="form-group">
+                    <label>監控目標</label>
+                    <select id="alert-target-type" onchange="toggleTargetId()">
+                        <option value="global">全局</option>
+                        <option value="endpoint">特定端點</option>
+                        <option value="system">特定系統</option>
+                    </select>
+                </div>
+                <div class="form-group" id="target-id-group" style="display: none;">
+                    <label>目標 ID</label>
+                    <input type="text" id="alert-target-id" placeholder="端點或系統的 UUID">
+                </div>
+                <div class="form-group">
+                    <label>閾值</label>
+                    <div style="display: flex; gap: 10px;">
+                        <input type="number" id="alert-threshold-value" placeholder="例如：5" style="flex: 1;">
+                        <input type="text" id="alert-threshold-unit" placeholder="單位 (%, ms)" style="width: 80px;">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>時間窗口（秒）</label>
+                    <input type="number" id="alert-time-window" value="300" placeholder="300">
+                </div>
+                <div class="form-group">
+                    <label>通知渠道</label>
+                    <div>
+                        <label style="display: inline-flex; align-items: center; margin-right: 15px;">
+                            <input type="checkbox" id="notify-webhook" value="webhook" style="width: auto; margin-right: 5px;">
+                            Webhook
+                        </label>
+                        <label style="display: inline-flex; align-items: center;">
+                            <input type="checkbox" id="notify-email" value="email" style="width: auto; margin-right: 5px;">
+                            Email
+                        </label>
+                    </div>
+                </div>
+                <div class="form-group" id="webhook-url-group">
+                    <label>Webhook URL</label>
+                    <input type="text" id="alert-webhook-url" placeholder="https://your-webhook.com/alerts">
+                </div>
+                <div class="form-group" id="email-recipients-group" style="display: none;">
+                    <label>Email 收件人</label>
+                    <input type="text" id="alert-email-recipients" placeholder="user@example.com, admin@example.com">
+                </div>
+                <div class="form-group">
+                    <label>狀態</label>
+                    <select id="alert-rule-active">
+                        <option value="1">啟用</option>
+                        <option value="0">停用</option>
+                    </select>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" onclick="closeAlertRuleModal()">取消</button>
+                <button class="btn-primary" onclick="saveAlertRule()">儲存</button>
+            </div>
+        </div>
+    </div>
+
     <script src="app.js"></script>
     <script src="transformation.js"></script>
+    <script src="alerts.js"></script>
 </body>
 
 </html>

@@ -7,219 +7,1211 @@
     <title>API Gateway 測試工具</title>
     <link rel="stylesheet" href="style.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        .test-container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            border-bottom: 2px solid var(--border-color);
+        }
+
+        .tab {
+            padding: 12px 24px;
+            cursor: pointer;
+            background: none;
+            border: none;
+            font-size: 15px;
+            font-weight: 500;
+            color: var(--secondary-color);
+            border-bottom: 3px solid transparent;
+            transition: all 0.3s;
+        }
+
+        .tab:hover {
+            color: var(--primary-color);
+        }
+
+        .tab.active {
+            color: var(--primary-color);
+            border-bottom-color: var(--primary-color);
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .request-section {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        @media (max-width: 1024px) {
+            .request-section {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .request-panel,
+        .response-panel {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        }
+
+        .url-bar {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .url-bar select {
+            width: 120px;
+        }
+
+        .url-bar input {
+            flex: 1;
+        }
+
+        .url-bar button {
+            width: 120px;
+        }
+
+        .headers-list,
+        .params-list {
+            margin: 15px 0;
+        }
+
+        .header-row,
+        .param-row {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 8px;
+            align-items: center;
+        }
+
+        .header-row input,
+        .param-row input {
+            flex: 1;
+        }
+
+        .header-row button,
+        .param-row button {
+            padding: 6px 10px;
+            font-size: 12px;
+        }
+
+        .add-btn {
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 13px;
+            margin-top: 8px;
+        }
+
+        .add-btn:hover {
+            opacity: 0.9;
+        }
+
+        .remove-btn {
+            background: #ef4444;
+            color: white;
+            border: none;
+            padding: 6px 10px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+
+        .remove-btn:hover {
+            background: #dc2626;
+        }
+
+        .response-status {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 15px;
+            padding: 12px;
+            background: #f8fafc;
+            border-radius: 6px;
+        }
+
+        .status-item {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .status-label {
+            font-size: 12px;
+            color: var(--secondary-color);
+        }
+
+        .status-value {
+            font-size: 14px;
+            font-weight: 600;
+        }
+
+        .status-success {
+            color: #22c55e;
+        }
+
+        .status-error {
+            color: #ef4444;
+        }
+
+        .response-tabs {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 15px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .response-tab {
+            padding: 8px 16px;
+            cursor: pointer;
+            font-size: 14px;
+            color: var(--secondary-color);
+            border-bottom: 2px solid transparent;
+            transition: all 0.2s;
+        }
+
+        .response-tab:hover {
+            color: var(--primary-color);
+        }
+
+        .response-tab.active {
+            color: var(--primary-color);
+            border-bottom-color: var(--primary-color);
+        }
+
+        .response-content {
+            display: none;
+        }
+
+        .response-content.active {
+            display: block;
+        }
+
+        .history-list {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .history-item {
+            background: white;
+            padding: 15px;
+            border-radius: 6px;
+            border: 1px solid var(--border-color);
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .history-item:hover {
+            border-color: var(--primary-color);
+            box-shadow: 0 2px 8px rgba(59, 130, 246, 0.1);
+        }
+
+        .history-meta {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+
+        .history-method {
+            font-weight: 600;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+        }
+
+        .method-GET {
+            background: #dbeafe;
+            color: #1e40af;
+        }
+
+        .method-POST {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .method-PUT {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .method-DELETE {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .history-url {
+            font-size: 14px;
+            color: var(--text-color);
+            margin-bottom: 4px;
+        }
+
+        .history-time {
+            font-size: 12px;
+            color: var(--secondary-color);
+        }
+
+        .env-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 15px;
+        }
+
+        .env-card {
+            background: white;
+            padding: 15px;
+            border-radius: 6px;
+            border: 2px solid var(--border-color);
+            transition: all 0.2s;
+        }
+
+        .env-card.active {
+            border-color: var(--primary-color);
+            background: #eff6ff;
+        }
+
+        .env-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .env-name {
+            font-weight: 600;
+            font-size: 15px;
+        }
+
+        .env-active {
+            color: var(--primary-color);
+            font-size: 12px;
+            font-weight: 500;
+        }
+
+        .env-variables {
+            font-size: 13px;
+            color: var(--secondary-color);
+        }
+
+        .template-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 15px;
+        }
+
+        .template-card {
+            background: white;
+            padding: 15px;
+            border-radius: 6px;
+            border: 1px solid var(--border-color);
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .template-card:hover {
+            border-color: var(--primary-color);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+
+        .template-name {
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+
+        .template-desc {
+            font-size: 13px;
+            color: var(--secondary-color);
+            margin-bottom: 8px;
+        }
+
+        .template-method {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .collapsible-section {
+            margin-bottom: 15px;
+        }
+
+        .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px;
+            background: #f8fafc;
+            border-radius: 4px;
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .section-header:hover {
+            background: #f1f5f9;
+        }
+
+        .section-title {
+            font-weight: 600;
+            font-size: 14px;
+        }
+
+        .section-content {
+            margin-top: 10px;
+        }
+
+        .section-content.collapsed {
+            display: none;
+        }
+
+        .code-block {
+            background: #1e293b;
+            color: #e2e8f0;
+            padding: 15px;
+            border-radius: 6px;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            overflow-x: auto;
+            max-height: 500px;
+            overflow-y: auto;
+        }
+
+        .body-type-tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+
+        .body-type-tab {
+            padding: 6px 12px;
+            background: #f1f5f9;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 13px;
+            transition: all 0.2s;
+        }
+
+        .body-type-tab:hover {
+            background: #e2e8f0;
+        }
+
+        .body-type-tab.active {
+            background: var(--primary-color);
+            color: white;
+        }
+
+        .quick-actions {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .save-template-btn {
+            background: #10b981;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 13px;
+        }
+
+        .save-template-btn:hover {
+            background: #059669;
+        }
+
+        .clear-btn {
+            background: #64748b;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 13px;
+        }
+
+        .clear-btn:hover {
+            background: #475569;
+        }
+
+        .export-btn {
+            background: #8b5cf6;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 13px;
+        }
+
+        .export-btn:hover {
+            background: #7c3aed;
+        }
+    </style>
 </head>
 
 <body>
-    <div class="container">
-        <h1>API Gateway 測試工具</h1>
-        <p style="margin-bottom: 30px; color: var(--secondary-color);">測試 API Gateway 的各種端點功能</p>
-
-        <div class="card">
-            <h2>1. OpenData API 測試</h2>
-            <p style="color: var(--secondary-color); margin-bottom: 15px;">無需認證的公開資料 API</p>
-
-            <div class="form-group">
-                <label>回應格式</label>
-                <select id="opendata-format">
-                    <option value="json">JSON</option>
-                    <option value="csv">CSV</option>
-                </select>
+    <div class="test-container">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+            <div>
+                <h1>API Gateway 測試工具</h1>
+                <p style="color: var(--secondary-color); margin-top: 5px;">專業級 API 測試平台</p>
             </div>
-
-            <div class="form-group">
-                <label>端點路徑</label>
-                <input type="text" id="opendata-path" value="/opendata/health-centers" readonly>
-            </div>
-
-            <button class="btn-primary" onclick="testOpenData()">發送請求</button>
-
-            <div class="form-group">
-                <label>回應結果</label>
-                <pre class="code-block" id="opendata-result">結果將顯示在這裡...</pre>
-            </div>
-        </div>
-
-        <div class="card">
-            <h2>2. AI API 透傳測試</h2>
-            <p style="color: var(--secondary-color); margin-bottom: 15px;">測試透過 Gateway 呼叫 OpenAI</p>
-
-            <div class="form-group">
-                <label>Gateway API Key</label>
-                <input type="text" id="gateway-key" value="admin-key-12345" placeholder="例如: admin-key-12345">
-                <small style="color: var(--secondary-color);">用於驗證對 Gateway 的存取權限</small>
-            </div>
-
-            <div class="form-group">
-                <label>Target API Key (OpenAI)</label>
-                <input type="text" id="target-key" value="mock-openai-key" placeholder="例如: sk-proj-xxxxx">
-                <small style="color: var(--secondary-color);">使用 "mock-openai-key" 會返回模擬回應；使用真實 OpenAI Key 會呼叫實際 API</small>
-            </div>
-
-            <div class="form-group">
-                <label>訊息內容</label>
-                <textarea id="ai-message" rows="3" placeholder="輸入要發送給 AI 的訊息...">請簡單介紹雲林縣</textarea>
-            </div>
-
-            <button class="btn-primary" onclick="testAI()">發送請求</button>
-
-            <div class="form-group">
-                <label>回應結果</label>
-                <pre class="code-block" id="ai-result">結果將顯示在這裡...</pre>
-            </div>
-        </div>
-
-        <div class="card">
-            <h2>3. 一般 API 端點測試</h2>
-            <p style="color: var(--secondary-color); margin-bottom: 15px;">測試需要認證的資料 API</p>
-
-            <div class="form-group">
-                <label>API Key</label>
-                <input type="text" id="general-key" value="admin-key-12345" placeholder="輸入您的 API Key">
-            </div>
-
-            <div class="form-group">
-                <label>HTTP 方法</label>
-                <select id="general-method">
-                    <option value="GET">GET</option>
-                    <option value="POST">POST</option>
-                    <option value="PUT">PUT</option>
-                    <option value="DELETE">DELETE</option>
-                </select>
-            </div>
-
-            <div class="form-group">
-                <label>端點路徑</label>
-                <input type="text" id="general-path" value="/api/admin/stats" placeholder="例如: /api/admin/stats">
-            </div>
-
-            <div class="form-group">
-                <label>請求 Body (JSON，僅 POST/PUT)</label>
-                <textarea id="general-body" rows="4" placeholder='{"key": "value"}'></textarea>
-            </div>
-
-            <button class="btn-primary" onclick="testGeneral()">發送請求</button>
-
-            <div class="form-group">
-                <label>回應結果</label>
-                <pre class="code-block" id="general-result">結果將顯示在這裡...</pre>
-            </div>
-        </div>
-
-        <div class="card">
-            <h2>4. 流量限制測試</h2>
-            <p style="color: var(--secondary-color); margin-bottom: 15px;">連續發送多個請求來測試流量限制功能</p>
-
-            <div class="form-group">
-                <label>API Key</label>
-                <input type="text" id="ratelimit-key" value="admin-key-12345">
-            </div>
-
-            <div class="form-group">
-                <label>請求次數</label>
-                <input type="number" id="ratelimit-count" value="10" min="1" max="100">
-            </div>
-
-            <button class="btn-primary" onclick="testRateLimit()">開始測試</button>
-
-            <div class="form-group">
-                <label>測試結果</label>
-                <pre class="code-block" id="ratelimit-result">結果將顯示在這裡...</pre>
-            </div>
-        </div>
-
-        <div style="text-align: center; margin-top: 40px;">
             <a href="index.html" class="btn-secondary">返回管理後台</a>
+        </div>
+
+        <div class="tabs">
+            <button class="tab active" onclick="switchTab('client')">HTTP Client</button>
+            <button class="tab" onclick="switchTab('history')">歷史記錄</button>
+            <button class="tab" onclick="switchTab('environments')">環境變數</button>
+            <button class="tab" onclick="switchTab('templates')">預設模板</button>
+        </div>
+
+        <!-- HTTP Client Tab -->
+        <div id="client-tab" class="tab-content active">
+            <div class="quick-actions">
+                <button class="save-template-btn" onclick="saveAsTemplate()">儲存為模板</button>
+                <button class="clear-btn" onclick="clearRequest()">清空請求</button>
+                <button class="export-btn" onclick="exportResponse()">匯出回應</button>
+            </div>
+
+            <div class="request-section">
+                <!-- Request Panel -->
+                <div class="request-panel">
+                    <h3 style="margin-bottom: 15px;">請求配置</h3>
+
+                    <div class="url-bar">
+                        <select id="http-method">
+                            <option value="GET">GET</option>
+                            <option value="POST">POST</option>
+                            <option value="PUT">PUT</option>
+                            <option value="DELETE">DELETE</option>
+                            <option value="PATCH">PATCH</option>
+                        </select>
+                        <input type="text" id="request-url" placeholder="http://localhost:3000/api/admin/stats">
+                        <button class="btn-primary" onclick="sendRequest()">發送</button>
+                    </div>
+
+                    <!-- Query Parameters -->
+                    <div class="collapsible-section">
+                        <div class="section-header" onclick="toggleSection('params')">
+                            <span class="section-title">Query Parameters</span>
+                            <span id="params-count">0 個</span>
+                        </div>
+                        <div id="params-section" class="section-content">
+                            <div id="params-list" class="params-list"></div>
+                            <button class="add-btn" onclick="addParam()">+ 添加參數</button>
+                        </div>
+                    </div>
+
+                    <!-- Headers -->
+                    <div class="collapsible-section">
+                        <div class="section-header" onclick="toggleSection('headers')">
+                            <span class="section-title">Headers</span>
+                            <span id="headers-count">0 個</span>
+                        </div>
+                        <div id="headers-section" class="section-content">
+                            <div id="headers-list" class="headers-list"></div>
+                            <button class="add-btn" onclick="addHeader()">+ 添加 Header</button>
+                        </div>
+                    </div>
+
+                    <!-- Request Body -->
+                    <div class="collapsible-section">
+                        <div class="section-header" onclick="toggleSection('body')">
+                            <span class="section-title">Request Body</span>
+                        </div>
+                        <div id="body-section" class="section-content">
+                            <div class="body-type-tabs">
+                                <button class="body-type-tab active" onclick="switchBodyType('json')">JSON</button>
+                                <button class="body-type-tab" onclick="switchBodyType('raw')">Raw</button>
+                                <button class="body-type-tab" onclick="switchBodyType('none')">None</button>
+                            </div>
+                            <div id="body-json" class="body-content">
+                                <textarea id="request-body" rows="10" placeholder='{\n  "key": "value"\n}'></textarea>
+                            </div>
+                            <div id="body-raw" class="body-content" style="display: none;">
+                                <textarea id="request-body-raw" rows="10" placeholder="輸入原始內容..."></textarea>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Response Panel -->
+                <div class="response-panel">
+                    <h3 style="margin-bottom: 15px;">回應</h3>
+
+                    <div id="response-status" class="response-status" style="display: none;">
+                        <div class="status-item">
+                            <span class="status-label">狀態</span>
+                            <span id="response-status-code" class="status-value">-</span>
+                        </div>
+                        <div class="status-item">
+                            <span class="status-label">時間</span>
+                            <span id="response-time" class="status-value">-</span>
+                        </div>
+                        <div class="status-item">
+                            <span class="status-label">大小</span>
+                            <span id="response-size" class="status-value">-</span>
+                        </div>
+                    </div>
+
+                    <div class="response-tabs">
+                        <span class="response-tab active" onclick="switchResponseTab('body')">Body</span>
+                        <span class="response-tab" onclick="switchResponseTab('headers')">Headers</span>
+                        <span class="response-tab" onclick="switchResponseTab('raw')">Raw</span>
+                    </div>
+
+                    <div id="response-body" class="response-content active">
+                        <pre class="code-block" id="response-body-content">發送請求後，回應將顯示在這裡...</pre>
+                    </div>
+
+                    <div id="response-headers" class="response-content">
+                        <pre class="code-block" id="response-headers-content">無 Headers</pre>
+                    </div>
+
+                    <div id="response-raw" class="response-content">
+                        <pre class="code-block" id="response-raw-content">無原始內容</pre>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- History Tab -->
+        <div id="history-tab" class="tab-content">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <h3>請求歷史</h3>
+                <button class="clear-btn" onclick="clearHistory()">清空歷史</button>
+            </div>
+            <div id="history-list" class="history-list">
+                <p style="text-align: center; color: var(--secondary-color); padding: 40px;">暫無歷史記錄</p>
+            </div>
+        </div>
+
+        <!-- Environments Tab -->
+        <div id="environments-tab" class="tab-content">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <h3>環境管理</h3>
+                <button class="btn-primary" onclick="addEnvironment()">+ 新增環境</button>
+            </div>
+            <div id="env-list" class="env-list"></div>
+        </div>
+
+        <!-- Templates Tab -->
+        <div id="templates-tab" class="tab-content">
+            <h3 style="margin-bottom: 20px;">預設模板</h3>
+            <div id="template-grid" class="template-grid"></div>
         </div>
     </div>
 
     <script src="app.js"></script>
     <script>
-        // 通用測試函數
-        async function testGeneral() {
-            const apiKey = document.getElementById('general-key').value;
-            const method = document.getElementById('general-method').value;
-            const path = document.getElementById('general-path').value;
-            const body = document.getElementById('general-body').value;
-            const resultPre = document.getElementById('general-result');
+        // ==================== 全局變數 ====================
+        let currentBodyType = 'json';
+        let currentResponseTab = 'body';
+        let requestHistory = JSON.parse(localStorage.getItem('requestHistory') || '[]');
+        let environments = JSON.parse(localStorage.getItem('environments') || '[]');
+        let templates = JSON.parse(localStorage.getItem('templates') || '[]');
+        let currentEnv = localStorage.getItem('currentEnv') || null;
+        let lastResponse = null;
 
-            resultPre.textContent = 'Loading...';
-
-            try {
-                const options = {
-                    method: method,
-                    headers: {
-                        'X-Gateway-API-Key': apiKey,
-                        'Content-Type': 'application/json'
+        // Initialize default environment if empty
+        if (environments.length === 0) {
+            environments = [
+                {
+                    id: 'default',
+                    name: 'Local Development',
+                    variables: {
+                        baseUrl: 'http://localhost:3000',
+                        adminKey: 'admin-key-12345'
                     }
-                };
-
-                if ((method === 'POST' || method === 'PUT') && body) {
-                    options.body = body;
                 }
+            ];
+            currentEnv = 'default';
+            saveEnvironments();
+        }
 
-                const res = await fetch(`${API_BASE}${path}`, options);
-                const text = await res.text();
+        // Initialize default templates
+        if (templates.length === 0) {
+            templates = [
+                {
+                    id: 'get-stats',
+                    name: '獲取統計資料',
+                    description: '獲取系統統計資訊',
+                    method: 'GET',
+                    url: '{{baseUrl}}/api/admin/stats',
+                    headers: [{ key: 'X-Gateway-API-Key', value: '{{adminKey}}' }],
+                    params: [],
+                    body: ''
+                },
+                {
+                    id: 'create-endpoint',
+                    name: '建立 API 端點',
+                    description: '新增一個 API 端點配置',
+                    method: 'POST',
+                    url: '{{baseUrl}}/api/admin/endpoints',
+                    headers: [
+                        { key: 'X-Gateway-API-Key', value: '{{adminKey}}' },
+                        { key: 'Content-Type', value: 'application/json' }
+                    ],
+                    params: [],
+                    body: '{\n  "name": "Test Endpoint",\n  "gateway_path": "/test/endpoint",\n  "target_url": "https://api.example.com/data",\n  "api_type": "data",\n  "timeout": 30\n}'
+                },
+                {
+                    id: 'opendata-test',
+                    name: 'OpenData 測試',
+                    description: '測試 OpenData API',
+                    method: 'GET',
+                    url: '{{baseUrl}}/opendata/health-centers',
+                    headers: [],
+                    params: [{ key: 'format', value: 'json' }],
+                    body: ''
+                }
+            ];
+            saveTemplates();
+        }
 
+        // ==================== Tab 管理 ====================
+        function switchTab(tabName) {
+            document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+
+            event.target.classList.add('active');
+            document.getElementById(`${tabName}-tab`).classList.add('active');
+
+            if (tabName === 'history') loadHistory();
+            if (tabName === 'environments') loadEnvironments();
+            if (tabName === 'templates') loadTemplatesUI();
+        }
+
+        function toggleSection(sectionName) {
+            const section = document.getElementById(`${sectionName}-section`);
+            section.classList.toggle('collapsed');
+        }
+
+        function switchBodyType(type) {
+            currentBodyType = type;
+            document.querySelectorAll('.body-type-tab').forEach(tab => tab.classList.remove('active'));
+            event.target.classList.add('active');
+
+            document.getElementById('body-json').style.display = 'none';
+            document.getElementById('body-raw').style.display = 'none';
+
+            if (type === 'json') document.getElementById('body-json').style.display = 'block';
+            if (type === 'raw') document.getElementById('body-raw').style.display = 'block';
+        }
+
+        function switchResponseTab(tab) {
+            currentResponseTab = tab;
+            document.querySelectorAll('.response-tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.response-content').forEach(c => c.classList.remove('active'));
+
+            event.target.classList.add('active');
+            document.getElementById(`response-${tab}`).classList.add('active');
+        }
+
+        // ==================== 參數和 Headers 管理 ====================
+        function addParam() {
+            const list = document.getElementById('params-list');
+            const row = document.createElement('div');
+            row.className = 'param-row';
+            row.innerHTML = `
+                <input type="text" placeholder="Key" class="param-key">
+                <input type="text" placeholder="Value" class="param-value">
+                <button class="remove-btn" onclick="this.parentElement.remove(); updateParamCount()">移除</button>
+            `;
+            list.appendChild(row);
+            updateParamCount();
+        }
+
+        function addHeader() {
+            const list = document.getElementById('headers-list');
+            const row = document.createElement('div');
+            row.className = 'header-row';
+            row.innerHTML = `
+                <input type="text" placeholder="Header Name" class="header-key">
+                <input type="text" placeholder="Header Value" class="header-value">
+                <button class="remove-btn" onclick="this.parentElement.remove(); updateHeaderCount()">移除</button>
+            `;
+            list.appendChild(row);
+            updateHeaderCount();
+        }
+
+        function updateParamCount() {
+            const count = document.querySelectorAll('.param-row').length;
+            document.getElementById('params-count').textContent = `${count} 個`;
+        }
+
+        function updateHeaderCount() {
+            const count = document.querySelectorAll('.header-row').length;
+            document.getElementById('headers-count').textContent = `${count} 個`;
+        }
+
+        // ==================== 發送請求 ====================
+        async function sendRequest() {
+            const method = document.getElementById('http-method').value;
+            let url = document.getElementById('request-url').value.trim();
+
+            if (!url) {
+                alert('請輸入 URL');
+                return;
+            }
+
+            // Replace environment variables
+            url = replaceVariables(url);
+
+            // Build query parameters
+            const params = [];
+            document.querySelectorAll('.param-row').forEach(row => {
+                const key = row.querySelector('.param-key').value;
+                const value = row.querySelector('.param-value').value;
+                if (key) params.push({ key, value });
+            });
+
+            if (params.length > 0) {
+                const queryString = params.map(p => `${encodeURIComponent(p.key)}=${encodeURIComponent(p.value)}`).join('&');
+                url += (url.includes('?') ? '&' : '?') + queryString;
+            }
+
+            // Build headers
+            const headers = {};
+            document.querySelectorAll('.header-row').forEach(row => {
+                const key = row.querySelector('.header-key').value;
+                const value = replaceVariables(row.querySelector('.header-value').value);
+                if (key) headers[key] = value;
+            });
+
+            // Build request options
+            const options = {
+                method: method,
+                headers: headers
+            };
+
+            // Add body if needed
+            if (method !== 'GET' && method !== 'HEAD' && currentBodyType !== 'none') {
+                if (currentBodyType === 'json') {
+                    const body = document.getElementById('request-body').value;
+                    if (body) {
+                        options.body = body;
+                        if (!headers['Content-Type']) {
+                            headers['Content-Type'] = 'application/json';
+                        }
+                    }
+                } else if (currentBodyType === 'raw') {
+                    const body = document.getElementById('request-body-raw').value;
+                    if (body) options.body = body;
+                }
+            }
+
+            // Show loading
+            document.getElementById('response-body-content').textContent = '發送請求中...';
+            document.getElementById('response-status').style.display = 'none';
+
+            // Send request
+            const startTime = Date.now();
+            try {
+                const response = await fetch(url, options);
+                const endTime = Date.now();
+                const duration = endTime - startTime;
+
+                // Get response text
+                const text = await response.text();
+                const size = new Blob([text]).size;
+
+                // Parse response
+                let bodyContent = text;
                 try {
                     const json = JSON.parse(text);
-                    resultPre.textContent = JSON.stringify(json, null, 2);
+                    bodyContent = JSON.stringify(json, null, 2);
                 } catch (e) {
-                    resultPre.textContent = text;
+                    // Not JSON, use raw text
                 }
-            } catch (err) {
-                resultPre.textContent = 'Error: ' + err.message;
+
+                // Display response
+                displayResponse(response, bodyContent, text, duration, size);
+
+                // Save to history
+                saveToHistory({
+                    method,
+                    url,
+                    headers,
+                    params,
+                    body: options.body || '',
+                    status: response.status,
+                    time: duration,
+                    timestamp: new Date().toISOString()
+                });
+
+            } catch (error) {
+                document.getElementById('response-body-content').textContent = `錯誤: ${error.message}`;
+                document.getElementById('response-status').style.display = 'flex';
+                document.getElementById('response-status-code').textContent = 'ERROR';
+                document.getElementById('response-status-code').className = 'status-value status-error';
             }
         }
 
-        // 流量限制測試函數
-        async function testRateLimit() {
-            const apiKey = document.getElementById('ratelimit-key').value;
-            const count = parseInt(document.getElementById('ratelimit-count').value);
-            const resultPre = document.getElementById('ratelimit-result');
+        function displayResponse(response, bodyContent, rawContent, duration, size) {
+            // Status
+            document.getElementById('response-status').style.display = 'flex';
+            const statusCode = document.getElementById('response-status-code');
+            statusCode.textContent = response.status + ' ' + response.statusText;
+            statusCode.className = response.ok ? 'status-value status-success' : 'status-value status-error';
 
-            resultPre.textContent = '開始測試...\n\n';
+            // Time
+            document.getElementById('response-time').textContent = duration + 'ms';
 
-            const results = [];
-            const startTime = Date.now();
+            // Size
+            const sizeText = size < 1024 ? size + ' B' : (size / 1024).toFixed(2) + ' KB';
+            document.getElementById('response-size').textContent = sizeText;
 
-            for (let i = 0; i < count; i++) {
-                try {
-                    const reqStart = Date.now();
-                    const res = await fetch(`${API_BASE}/api/admin/stats`, {
-                        headers: { 'X-Gateway-API-Key': apiKey }
-                    });
-                    const reqEnd = Date.now();
+            // Body
+            document.getElementById('response-body-content').textContent = bodyContent;
 
-                    const result = {
-                        index: i + 1,
-                        status: res.status,
-                        time: reqEnd - reqStart
-                    };
-                    results.push(result);
+            // Headers
+            let headersText = '';
+            response.headers.forEach((value, key) => {
+                headersText += `${key}: ${value}\n`;
+            });
+            document.getElementById('response-headers-content').textContent = headersText || '無 Headers';
 
-                    resultPre.textContent += `請求 ${i + 1}/${count}: ${res.status} (${reqEnd - reqStart}ms)\n`;
-                } catch (err) {
-                    results.push({
-                        index: i + 1,
-                        status: 'ERROR',
-                        error: err.message
-                    });
-                    resultPre.textContent += `請求 ${i + 1}/${count}: ERROR - ${err.message}\n`;
-                }
+            // Raw
+            document.getElementById('response-raw-content').textContent = rawContent;
+
+            // Save last response
+            lastResponse = {
+                status: response.status,
+                statusText: response.statusText,
+                headers: Object.fromEntries(response.headers),
+                body: bodyContent,
+                raw: rawContent
+            };
+        }
+
+        // ==================== 環境變數替換 ====================
+        function replaceVariables(text) {
+            if (!currentEnv) return text;
+            const env = environments.find(e => e.id === currentEnv);
+            if (!env) return text;
+
+            let result = text;
+            for (const [key, value] of Object.entries(env.variables)) {
+                result = result.replace(new RegExp(`{{${key}}}`, 'g'), value);
+            }
+            return result;
+        }
+
+        // ==================== 歷史記錄 ====================
+        function saveToHistory(record) {
+            requestHistory.unshift(record);
+            if (requestHistory.length > 50) requestHistory = requestHistory.slice(0, 50);
+            localStorage.setItem('requestHistory', JSON.stringify(requestHistory));
+        }
+
+        function loadHistory() {
+            const list = document.getElementById('history-list');
+            if (requestHistory.length === 0) {
+                list.innerHTML = '<p style="text-align: center; color: var(--secondary-color); padding: 40px;">暫無歷史記錄</p>';
+                return;
             }
 
-            const endTime = Date.now();
-            const totalTime = endTime - startTime;
-            const successCount = results.filter(r => r.status === 200).length;
-            const errorCount = results.filter(r => r.status === 429 || r.status === 'ERROR').length;
+            list.innerHTML = '';
+            requestHistory.forEach((record, index) => {
+                const item = document.createElement('div');
+                item.className = 'history-item';
+                item.onclick = () => loadFromHistory(index);
 
-            resultPre.textContent += `\n========== 測試完成 ==========\n`;
-            resultPre.textContent += `總請求數: ${count}\n`;
-            resultPre.textContent += `成功: ${successCount}\n`;
-            resultPre.textContent += `失敗/限流: ${errorCount}\n`;
-            resultPre.textContent += `總耗時: ${totalTime}ms\n`;
-            resultPre.textContent += `平均耗時: ${(totalTime / count).toFixed(2)}ms\n`;
+                const time = new Date(record.timestamp).toLocaleString('zh-TW');
+                const statusClass = record.status >= 200 && record.status < 300 ? 'status-success' : 'status-error';
+
+                item.innerHTML = `
+                    <div class="history-meta">
+                        <span class="history-method method-${record.method}">${record.method}</span>
+                        <span class="${statusClass}">${record.status} (${record.time}ms)</span>
+                    </div>
+                    <div class="history-url">${record.url}</div>
+                    <div class="history-time">${time}</div>
+                `;
+                list.appendChild(item);
+            });
         }
+
+        function loadFromHistory(index) {
+            const record = requestHistory[index];
+
+            // Switch to client tab
+            document.querySelector('.tab').click();
+
+            // Load request
+            document.getElementById('http-method').value = record.method;
+            document.getElementById('request-url').value = record.url.split('?')[0];
+
+            // Clear and load params
+            document.getElementById('params-list').innerHTML = '';
+            if (record.params && record.params.length > 0) {
+                record.params.forEach(param => {
+                    addParam();
+                    const rows = document.querySelectorAll('.param-row');
+                    const lastRow = rows[rows.length - 1];
+                    lastRow.querySelector('.param-key').value = param.key;
+                    lastRow.querySelector('.param-value').value = param.value;
+                });
+            }
+
+            // Clear and load headers
+            document.getElementById('headers-list').innerHTML = '';
+            if (record.headers) {
+                Object.entries(record.headers).forEach(([key, value]) => {
+                    addHeader();
+                    const rows = document.querySelectorAll('.header-row');
+                    const lastRow = rows[rows.length - 1];
+                    lastRow.querySelector('.header-key').value = key;
+                    lastRow.querySelector('.header-value').value = value;
+                });
+            }
+
+            // Load body
+            if (record.body) {
+                document.getElementById('request-body').value = record.body;
+            }
+        }
+
+        function clearHistory() {
+            if (confirm('確定要清空所有歷史記錄嗎？')) {
+                requestHistory = [];
+                localStorage.setItem('requestHistory', JSON.stringify(requestHistory));
+                loadHistory();
+            }
+        }
+
+        // ==================== 環境管理 ====================
+        function loadEnvironments() {
+            const list = document.getElementById('env-list');
+            list.innerHTML = '';
+
+            environments.forEach(env => {
+                const card = document.createElement('div');
+                card.className = 'env-card' + (env.id === currentEnv ? ' active' : '');
+                card.onclick = () => setCurrentEnvironment(env.id);
+
+                const varCount = Object.keys(env.variables).length;
+
+                card.innerHTML = `
+                    <div class="env-header">
+                        <span class="env-name">${env.name}</span>
+                        ${env.id === currentEnv ? '<span class="env-active">使用中</span>' : ''}
+                    </div>
+                    <div class="env-variables">${varCount} 個變數</div>
+                    <div style="margin-top: 10px; font-size: 12px; color: var(--secondary-color);">
+                        ${Object.entries(env.variables).map(([k, v]) => `${k}: ${v}`).join('<br>')}
+                    </div>
+                `;
+                list.appendChild(card);
+            });
+        }
+
+        function setCurrentEnvironment(envId) {
+            currentEnv = envId;
+            localStorage.setItem('currentEnv', envId);
+            loadEnvironments();
+        }
+
+        function saveEnvironments() {
+            localStorage.setItem('environments', JSON.stringify(environments));
+        }
+
+        function addEnvironment() {
+            const name = prompt('請輸入環境名稱：');
+            if (!name) return;
+
+            const id = 'env-' + Date.now();
+            environments.push({
+                id,
+                name,
+                variables: {
+                    baseUrl: 'http://localhost:3000',
+                    adminKey: 'admin-key-12345'
+                }
+            });
+            saveEnvironments();
+            loadEnvironments();
+        }
+
+        // ==================== 模板管理 ====================
+        function loadTemplatesUI() {
+            const grid = document.getElementById('template-grid');
+            grid.innerHTML = '';
+
+            templates.forEach(template => {
+                const card = document.createElement('div');
+                card.className = 'template-card';
+                card.onclick = () => loadTemplate(template.id);
+
+                card.innerHTML = `
+                    <div class="template-name">${template.name}</div>
+                    <div class="template-desc">${template.description}</div>
+                    <span class="template-method method-${template.method}">${template.method}</span>
+                `;
+                grid.appendChild(card);
+            });
+        }
+
+        function loadTemplate(templateId) {
+            const template = templates.find(t => t.id === templateId);
+            if (!template) return;
+
+            // Switch to client tab
+            document.querySelector('.tab').click();
+
+            // Load template
+            document.getElementById('http-method').value = template.method;
+            document.getElementById('request-url').value = template.url;
+
+            // Load params
+            document.getElementById('params-list').innerHTML = '';
+            template.params.forEach(param => {
+                addParam();
+                const rows = document.querySelectorAll('.param-row');
+                const lastRow = rows[rows.length - 1];
+                lastRow.querySelector('.param-key').value = param.key;
+                lastRow.querySelector('.param-value').value = param.value;
+            });
+
+            // Load headers
+            document.getElementById('headers-list').innerHTML = '';
+            template.headers.forEach(header => {
+                addHeader();
+                const rows = document.querySelectorAll('.header-row');
+                const lastRow = rows[rows.length - 1];
+                lastRow.querySelector('.header-key').value = header.key;
+                lastRow.querySelector('.header-value').value = header.value;
+            });
+
+            // Load body
+            if (template.body) {
+                document.getElementById('request-body').value = template.body;
+                switchBodyType('json');
+            }
+        }
+
+        function saveAsTemplate() {
+            const name = prompt('請輸入模板名稱：');
+            if (!name) return;
+
+            const description = prompt('請輸入模板描述（可選）：') || '';
+
+            const method = document.getElementById('http-method').value;
+            const url = document.getElementById('request-url').value;
+
+            const params = [];
+            document.querySelectorAll('.param-row').forEach(row => {
+                const key = row.querySelector('.param-key').value;
+                const value = row.querySelector('.param-value').value;
+                if (key) params.push({ key, value });
+            });
+
+            const headers = [];
+            document.querySelectorAll('.header-row').forEach(row => {
+                const key = row.querySelector('.header-key').value;
+                const value = row.querySelector('.header-value').value;
+                if (key) headers.push({ key, value });
+            });
+
+            const body = currentBodyType === 'json'
+                ? document.getElementById('request-body').value
+                : document.getElementById('request-body-raw').value;
+
+            const template = {
+                id: 'template-' + Date.now(),
+                name,
+                description,
+                method,
+                url,
+                headers,
+                params,
+                body
+            };
+
+            templates.push(template);
+            saveTemplates();
+            alert('模板已儲存！');
+        }
+
+        function saveTemplates() {
+            localStorage.setItem('templates', JSON.stringify(templates));
+        }
+
+        // ==================== 其他功能 ====================
+        function clearRequest() {
+            document.getElementById('request-url').value = '';
+            document.getElementById('params-list').innerHTML = '';
+            document.getElementById('headers-list').innerHTML = '';
+            document.getElementById('request-body').value = '';
+            document.getElementById('request-body-raw').value = '';
+            updateParamCount();
+            updateHeaderCount();
+        }
+
+        function exportResponse() {
+            if (!lastResponse) {
+                alert('沒有可匯出的回應');
+                return;
+            }
+
+            const data = {
+                status: lastResponse.status,
+                statusText: lastResponse.statusText,
+                headers: lastResponse.headers,
+                body: lastResponse.body
+            };
+
+            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `response-${Date.now()}.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
+        // ==================== 初始化 ====================
+        window.addEventListener('DOMContentLoaded', () => {
+            // Add default header
+            addHeader();
+            const headerRows = document.querySelectorAll('.header-row');
+            if (headerRows.length > 0) {
+                headerRows[0].querySelector('.header-key').value = 'X-Gateway-API-Key';
+                headerRows[0].querySelector('.header-value').value = '{{adminKey}}';
+            }
+
+            // Set default URL
+            document.getElementById('request-url').value = '{{baseUrl}}/api/admin/stats';
+
+            updateHeaderCount();
+            updateParamCount();
+        });
     </script>
 </body>
 

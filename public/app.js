@@ -28,9 +28,18 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
+    // Time filter buttons
+    document.querySelectorAll('.filter-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+            e.target.classList.add('active');
+            loadStats(e.target.dataset.period);
+        });
+    });
+
     // Initial Load
     if (document.getElementById('dashboard')) {
-        loadStats();
+        loadStats('today');
         document.getElementById('refresh-logs').addEventListener('click', loadLogs);
     }
 
@@ -44,9 +53,9 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 });
 
-async function loadStats() {
+async function loadStats(period = 'today') {
     try {
-        const res = await fetch(`${API_BASE}/api/admin/stats`, {
+        const res = await fetch(`${API_BASE}/api/admin/stats?period=${period}`, {
             headers: { 'X-Gateway-API-Key': ADMIN_KEY }
         });
         const data = await res.json();
@@ -55,35 +64,118 @@ async function loadStats() {
         document.getElementById('active-endpoints').textContent = data.active_endpoints;
         document.getElementById('systems-connected').textContent = data.systems_connected;
 
-        // Render hourly chart
-        const chartContainer = document.querySelector('.chart-bars');
-        if (chartContainer && data.hourly_requests && data.hourly_requests.length > 0) {
-            // Find max count for scaling
-            const maxCount = Math.max(...data.hourly_requests.map(h => h.count), 1);
+        // Render traffic chart
+        renderTrafficChart(data.traffic_data, period);
 
-            // Generate chart bars
-            chartContainer.innerHTML = data.hourly_requests.map(hourData => {
-                const heightPercent = (hourData.count / maxCount) * 100;
-                return `<div class="bar" style="height: ${heightPercent}%;" title="${hourData.hour}:00 - ${hourData.count} requests"></div>`;
-            }).join('');
-        }
+        // Render API usage chart
+        renderApiUsageChart(data.api_usage);
     } catch (err) {
         console.error('Failed to load stats', err);
     }
 }
 
-async function loadLogs() {
+function renderTrafficChart(data, period) {
+    const chartContainer = document.getElementById('traffic-chart');
+    if (!chartContainer) return;
+
+    if (!data || data.length === 0) {
+        chartContainer.innerHTML = '<div class="chart-empty">暫無數據</div>';
+        return;
+    }
+
+    // Find max count for scaling
+    const maxCount = Math.max(...data.map(d => d.count), 1);
+
+    // Generate chart bars
+    let chartHTML = '<div class="chart-bars">';
+
+    // Determine how many bars to show based on period
+    const step = period === 'month' ? 2 : 1; // Show every 2nd bar for month view
+
+    data.forEach((item, index) => {
+        if (period === 'month' && index % step !== 0 && index !== data.length - 1) {
+            return; // Skip some bars in month view for readability
+        }
+
+        const heightPercent = maxCount > 0 ? (item.count / maxCount) * 100 : 0;
+
+        // Format label based on period
+        let displayLabel = item.label;
+        if (period === 'today') {
+            // 14:00 -> 14
+            displayLabel = item.label.split(':')[0];
+        } else {
+            // 2024-11-22 -> 11/22
+            const parts = item.label.split('-');
+            if (parts.length === 3) {
+                displayLabel = `${parts[1]}/${parts[2]}`;
+            }
+        }
+
+        chartHTML += `
+            <div class="bar-wrapper">
+                <div class="bar" style="height: ${heightPercent}%;" title="${item.label}: ${item.count} 請求"></div>
+                <div class="bar-label">${displayLabel}</div>
+            </div>
+        `;
+    });
+
+    chartHTML += '</div>';
+    chartContainer.innerHTML = chartHTML;
+}
+
+function renderApiUsageChart(data) {
+    const chartContainer = document.getElementById('api-usage-chart');
+    if (!chartContainer) return;
+
+    if (!data || data.length === 0) {
+        chartContainer.innerHTML = '<div class="chart-empty">暫無數據</div>';
+        return;
+    }
+
+    // Find max count for scaling
+    const maxCount = Math.max(...data.map(d => d.count), 1);
+
+    // Generate horizontal bar chart
+    let chartHTML = '<div class="api-usage-bars">';
+
+    data.forEach((item) => {
+        const widthPercent = maxCount > 0 ? (item.count / maxCount) * 100 : 0;
+        const typeClass = item.api_type === 'data' ? 'data' : 'ai';
+        const displayName = item.name || '未知端點';
+
+        chartHTML += `
+            <div class="api-usage-row">
+                <div class="api-usage-info">
+                    <span class="api-name">${displayName}</span>
+                    <span class="badge ${typeClass}">${item.api_type === 'data' ? 'Data' : 'AI'}</span>
+                </div>
+                <div class="api-usage-bar-container">
+                    <div class="api-usage-bar" style="width: ${widthPercent}%;" title="${displayName}: ${item.count} 請求"></div>
+                    <span class="api-usage-count">${item.count}</span>
+                </div>
+            </div>
+        `;
+    });
+
+    chartHTML += '</div>';
+    chartContainer.innerHTML = chartHTML;
+}
+
+async function loadLogs(page = 1) {
     try {
-        const res = await fetch(`${API_BASE}/api/admin/logs`, {
+        const res = await fetch(`${API_BASE}/api/admin/logs?page=${page}&limit=20`, {
             headers: { 'X-Gateway-API-Key': ADMIN_KEY }
         });
-        const logs = await res.json();
+        const response = await res.json();
+        const logs = response.data || [];
 
         const tbody = document.getElementById('logs-body');
         tbody.innerHTML = '';
 
         if (logs.length === 0) {
             tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: var(--secondary-color);">暫無日誌記錄</td></tr>';
+            renderPagination('logs-pagination', response.pagination, loadLogs);
             return;
         }
 
@@ -101,6 +193,8 @@ async function loadLogs() {
             `;
             tbody.appendChild(tr);
         });
+
+        renderPagination('logs-pagination', response.pagination, loadLogs);
     } catch (err) {
         console.error('Failed to load logs', err);
     }
@@ -110,13 +204,15 @@ async function loadLogs() {
 
 let currentEndpoints = [];
 
-async function loadEndpoints() {
+async function loadEndpoints(page = 1) {
     try {
-        const res = await fetch(`${API_BASE}/api/admin/endpoints`, {
+        const res = await fetch(`${API_BASE}/api/admin/endpoints?page=${page}&limit=10`, {
             headers: { 'X-Gateway-API-Key': ADMIN_KEY }
         });
-        currentEndpoints = await res.json();
+        const response = await res.json();
+        currentEndpoints = response.data || [];
         renderEndpoints();
+        renderPagination('endpoints-pagination', response.pagination, loadEndpoints);
     } catch (err) {
         console.error('Failed to load endpoints', err);
     }
@@ -312,13 +408,15 @@ async function testAI() {
 
 let currentSystems = [];
 
-async function loadSystems() {
+async function loadSystems(page = 1) {
     try {
-        const res = await fetch(`${API_BASE}/api/admin/systems`, {
+        const res = await fetch(`${API_BASE}/api/admin/systems?page=${page}&limit=10`, {
             headers: { 'X-Gateway-API-Key': ADMIN_KEY }
         });
-        currentSystems = await res.json();
+        const response = await res.json();
+        currentSystems = response.data || [];
         renderSystems();
+        renderPagination('systems-pagination', response.pagination, loadSystems);
     } catch (err) {
         console.error('Failed to load systems', err);
     }
@@ -621,4 +719,65 @@ async function savePermissions() {
         console.error('Error saving permissions', err);
         alert('授權更新錯誤');
     }
+}
+
+// --- Pagination ---
+function renderPagination(containerId, pagination, loadFunction) {
+    const container = document.getElementById(containerId);
+    if (!container || !pagination) return;
+
+    const { page, totalPages, total } = pagination;
+
+    if (totalPages <= 1) {
+        container.innerHTML = '';
+        return;
+    }
+
+    let html = '<div class="pagination">';
+    html += `<span class="pagination-info">共 ${total} 條記錄，第 ${page}/${totalPages} 頁</span>`;
+    html += '<div class="pagination-buttons">';
+
+    // Previous button
+    if (page > 1) {
+        html += `<button class="pagination-btn" onclick="${loadFunction.name}(${page - 1})">上一頁</button>`;
+    } else {
+        html += `<button class="pagination-btn" disabled>上一頁</button>`;
+    }
+
+    // Page numbers
+    const maxButtons = 5;
+    let startPage = Math.max(1, page - Math.floor(maxButtons / 2));
+    let endPage = Math.min(totalPages, startPage + maxButtons - 1);
+
+    if (endPage - startPage < maxButtons - 1) {
+        startPage = Math.max(1, endPage - maxButtons + 1);
+    }
+
+    if (startPage > 1) {
+        html += `<button class="pagination-btn" onclick="${loadFunction.name}(1)">1</button>`;
+        if (startPage > 2) html += '<span class="pagination-ellipsis">...</span>';
+    }
+
+    for (let i = startPage; i <= endPage; i++) {
+        if (i === page) {
+            html += `<button class="pagination-btn active">${i}</button>`;
+        } else {
+            html += `<button class="pagination-btn" onclick="${loadFunction.name}(${i})">${i}</button>`;
+        }
+    }
+
+    if (endPage < totalPages) {
+        if (endPage < totalPages - 1) html += '<span class="pagination-ellipsis">...</span>';
+        html += `<button class="pagination-btn" onclick="${loadFunction.name}(${totalPages})">${totalPages}</button>`;
+    }
+
+    // Next button
+    if (page < totalPages) {
+        html += `<button class="pagination-btn" onclick="${loadFunction.name}(${page + 1})">下一頁</button>`;
+    } else {
+        html += `<button class="pagination-btn" disabled>下一頁</button>`;
+    }
+
+    html += '</div></div>';
+    container.innerHTML = html;
 }

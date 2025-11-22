@@ -27,7 +27,9 @@
       "Bash(node test/analyze-regexp-patterns.js:*)",
       "Bash(node test/compare-parsers.js:*)",
       "Bash(node:*)",
-      "Bash(echo:*)"
+      "Bash(echo:*)",
+      "Bash(git checkout:*)",
+      "Bash(timeout /t 3 /nobreak)"
     ],
     "deny": [],
     "ask": []
