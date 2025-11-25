@@ -13,7 +13,7 @@ function registerDefaultHelpers() {
     });
 
     Handlebars.registerHelper('json', function (context) {
-        return JSON.stringify(context, null, 2);
+        return new Handlebars.SafeString(JSON.stringify(context));
     });
 
     Handlebars.registerHelper('dateFormat', function (value, locale = 'en-US', options = {}) {

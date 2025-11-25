@@ -3,24 +3,24 @@ const crypto = require('crypto');
 
 class AlertMonitor {
     constructor() {
-        this.checkInterval = 60000; // 每分钟检查一次
+        this.checkInterval = 60000; // 每分鐘檢查一次
         this.intervalId = null;
         this.isRunning = false;
     }
 
     start() {
         if (this.isRunning) {
-            console.log('[AlertMonitor] 已在运行中');
+            console.log('[AlertMonitor] 已在運行中');
             return;
         }
 
-        console.log('[AlertMonitor] 启动告警监控服务...');
+        console.log('[AlertMonitor] 啟動告警監控服務...');
         this.isRunning = true;
 
-        // 立即执行一次检查
+        // 立即執行一次檢查
         this.checkAllRules();
 
-        // 定期检查
+        // 定期檢查
         this.intervalId = setInterval(() => {
             this.checkAllRules();
         }, this.checkInterval);
@@ -32,19 +32,19 @@ class AlertMonitor {
             this.intervalId = null;
         }
         this.isRunning = false;
-        console.log('[AlertMonitor] 告警监控服务已停止');
+        console.log('[AlertMonitor] 告警監控服務已停止');
     }
 
     async checkAllRules() {
         try {
             const rules = await this.getActiveRules();
-            console.log(`[AlertMonitor] 检查 ${rules.length} 条告警规则...`);
+            console.log(`[AlertMonitor] 檢查 ${rules.length} 條告警規則...`);
 
             for (const rule of rules) {
                 await this.checkRule(rule);
             }
         } catch (err) {
-            console.error('[AlertMonitor] 检查告警规则时出错:', err);
+            console.error('[AlertMonitor] 檢查告警規則時出錯:', err);
         }
     }
 
@@ -68,25 +68,25 @@ class AlertMonitor {
                     const errorRate = await this.calculateErrorRate(rule);
                     metricValue = errorRate;
                     shouldAlert = errorRate > rule.threshold_value;
-                    alertMessage = `错误率 ${errorRate.toFixed(2)}% 超过阈值 ${rule.threshold_value}%`;
+                    alertMessage = `錯誤率 ${errorRate.toFixed(2)}% 超過閾值 ${rule.threshold_value}%`;
                     break;
 
                 case 'response_time':
                     const avgResponseTime = await this.calculateAvgResponseTime(rule);
                     metricValue = avgResponseTime;
                     shouldAlert = avgResponseTime > rule.threshold_value;
-                    alertMessage = `平均响应时间 ${avgResponseTime.toFixed(0)}ms 超过阈值 ${rule.threshold_value}ms`;
+                    alertMessage = `平均響應時間 ${avgResponseTime.toFixed(0)}ms 超過閾值 ${rule.threshold_value}ms`;
                     break;
 
                 case 'traffic_anomaly':
                     const trafficAnomaly = await this.detectTrafficAnomaly(rule);
                     metricValue = trafficAnomaly.changePercent;
                     shouldAlert = trafficAnomaly.isAnomalous;
-                    alertMessage = `流量${trafficAnomaly.changePercent > 0 ? '突增' : '骤降'} ${Math.abs(trafficAnomaly.changePercent).toFixed(1)}% 超过阈值 ${rule.threshold_value}%`;
+                    alertMessage = `流量${trafficAnomaly.changePercent > 0 ? '突增' : '驟降'} ${Math.abs(trafficAnomaly.changePercent).toFixed(1)}% 超過閾值 ${rule.threshold_value}%`;
                     break;
 
                 default:
-                    console.warn(`[AlertMonitor] 未知的告警类型: ${rule.rule_type}`);
+                    console.warn(`[AlertMonitor] 未知的告警類型: ${rule.rule_type}`);
                     return;
             }
 
@@ -94,7 +94,7 @@ class AlertMonitor {
                 await this.triggerAlert(rule, metricValue, alertMessage);
             }
         } catch (err) {
-            console.error(`[AlertMonitor] 检查规则 ${rule.rule_name} 时出错:`, err);
+            console.error(`[AlertMonitor] 檢查規則 ${rule.rule_name} 時出錯:`, err);
         }
     }
 
@@ -153,7 +153,7 @@ class AlertMonitor {
             const timeWindowSeconds = rule.time_window || 600;
             const halfWindow = Math.floor(timeWindowSeconds / 2);
 
-            // 获取前半段和后半段的请求数
+            // 獲取前半段和後半段的請求數
             const query = `
                 SELECT
                     SUM(CASE WHEN created_at >= datetime('now', '-${halfWindow} seconds') THEN 1 ELSE 0 END) as recent_count,
@@ -189,20 +189,20 @@ class AlertMonitor {
     }
 
     async triggerAlert(rule, metricValue, alertMessage) {
-        // 检查是否最近已经触发过相同告警（避免重复告警）
-        const recentAlert = await this.checkRecentAlert(rule.rule_id, 600); // 10 分钟内
+        // 檢查是否最近已經觸發過相同告警（避免重複告警）
+        const recentAlert = await this.checkRecentAlert(rule.rule_id, 600); // 10 分鐘內
 
         if (recentAlert) {
-            console.log(`[AlertMonitor] 规则 "${rule.rule_name}" 最近已触发告警，跳过`);
+            console.log(`[AlertMonitor] 規則 "${rule.rule_name}" 最近已觸發告警，跳過`);
             return;
         }
 
-        console.log(`[AlertMonitor] 🚨 触发告警: ${rule.rule_name} - ${alertMessage}`);
+        console.log(`[AlertMonitor] 🚨 觸發告警: ${rule.rule_name} - ${alertMessage}`);
 
         const alertId = crypto.randomUUID();
         const notificationChannels = this.parseNotificationChannels(rule.notification_channels);
 
-        // 记录告警历史
+        // 記錄告警歷史
         await this.recordAlert({
             alert_id: alertId,
             rule_id: rule.rule_id,
@@ -214,7 +214,7 @@ class AlertMonitor {
             notification_channels: JSON.stringify(notificationChannels)
         });
 
-        // 发送通知
+        // 發送通知
         await this.sendNotifications(rule, alertMessage, metricValue, notificationChannels);
     }
 
@@ -276,12 +276,12 @@ class AlertMonitor {
                     });
                     results.push({ channel: 'webhook', success: true });
                 } else if (channel === 'email' && rule.email_recipients) {
-                    // 邮件通知实现（需要配置 SMTP）
-                    console.log(`[AlertMonitor] 邮件通知功能尚未配置: ${rule.email_recipients}`);
+                    // 郵件通知實現（需要配置 SMTP）
+                    console.log(`[AlertMonitor] 郵件通知功能尚未配置: ${rule.email_recipients}`);
                     results.push({ channel: 'email', success: false, error: '未配置' });
                 }
             } catch (err) {
-                console.error(`[AlertMonitor] 发送 ${channel} 通知失败:`, err.message);
+                console.error(`[AlertMonitor] 發送 ${channel} 通知失敗:`, err.message);
                 results.push({ channel, success: false, error: err.message });
             }
         }
@@ -299,10 +299,10 @@ class AlertMonitor {
         });
 
         if (!response.ok) {
-            throw new Error(`Webhook 请求失败: ${response.status} ${response.statusText}`);
+            throw new Error(`Webhook 請求失敗: ${response.status} ${response.statusText}`);
         }
 
-        console.log(`[AlertMonitor] ✓ Webhook 通知已发送: ${url}`);
+        console.log(`[AlertMonitor] ✓ Webhook 通知已發送: ${url}`);
     }
 
     parseNotificationChannels(channelsJson) {
@@ -315,7 +315,7 @@ class AlertMonitor {
     }
 
     determineAlertLevel(ruleType, metricValue, threshold) {
-        // 简单的告警级别判断
+        // 簡單的告警級別判斷
         if (ruleType === 'error_rate') {
             if (metricValue > threshold * 2) return 'critical';
             if (metricValue > threshold * 1.5) return 'warning';

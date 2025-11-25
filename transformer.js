@@ -50,7 +50,7 @@ class DataTransformer {
             const templateString = typeof rule.template_config === 'string'
                 ? rule.template_config
                 : rule.template_config.body || '';
-            workingData = this.applyTemplate(workingData, templateString, rule.template_helpers);
+            workingData = this.applyTemplate(workingData, templateString, rule.template_helpers, root);
         }
 
         // 資料驗證（在輸出前執行）
@@ -140,11 +140,12 @@ class DataTransformer {
         throw new Error(`Unsupported target format: ${format}`);
     }
 
-    applyTemplate(data, templateString, helperList) {
+    applyTemplate(data, templateString, helperList, root) {
         if (!templateString) return data;
 
         const template = Handlebars.compile(templateString, { noEscape: true });
-        const rendered = template(data);
+        // 傳遞 root 到 Handlebars 的 data 選項中，讓模板可以訪問 @root
+        const rendered = template(data, { data: { root: root || data } });
 
         try {
             return JSON.parse(rendered);

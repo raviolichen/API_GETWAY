@@ -14,6 +14,7 @@ function createTransformationTable() {
         source_format TEXT CHECK(source_format IN ('json', 'csv', 'xml')) NOT NULL,
         target_format TEXT CHECK(target_format IN ('json', 'csv', 'xml')) NOT NULL,
         transformation_type TEXT CHECK(transformation_type IN ('template', 'mapping', 'hybrid')) NOT NULL,
+        direction TEXT CHECK(direction IN ('request', 'response', 'both')) DEFAULT 'response',
         template_config TEXT,
         mapping_config TEXT,
         filter_config TEXT,

@@ -485,6 +485,7 @@
 
         <div class="tabs">
             <button class="tab active" onclick="switchTab('client')">HTTP Client</button>
+            <button class="tab" onclick="switchTab('ai')">🤖 AI API 簡易測試</button>
             <button class="tab" onclick="switchTab('history')">歷史記錄</button>
             <button class="tab" onclick="switchTab('environments')">環境變數</button>
             <button class="tab" onclick="switchTab('templates')">預設模板</button>
@@ -595,6 +596,73 @@
 
                     <div id="response-raw" class="response-content">
                         <pre class="code-block" id="response-raw-content">無原始內容</pre>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- AI API Tab -->
+        <div id="ai-tab" class="tab-content">
+            <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 20px; border-radius: 8px; margin-bottom: 20px; color: white;">
+                <h3 style="margin-bottom: 10px;">🤖 AI API 簡易測試</h3>
+                <p style="opacity: 0.9; margin: 0;">輕鬆測試 AI 功能！只需輸入訊息和模型，系統會自動處理格式轉換</p>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                <!-- Request Panel -->
+                <div class="request-panel">
+                    <h3 style="margin-bottom: 15px;">請求配置</h3>
+
+                    <div class="form-group" style="margin-bottom: 15px;">
+                        <label style="display: block; margin-bottom: 8px; font-weight: 500;">API Token</label>
+                        <input type="password" id="ai-token" placeholder="xai-..." style="width: 100%; padding: 10px; border: 1px solid var(--border-color); border-radius: 6px;">
+                        <small style="color: var(--secondary-color); margin-top: 5px; display: block;">請輸入你的 xAI (Grok) API Key 或 OpenAI API Key</small>
+                    </div>
+
+                    <div class="form-group" style="margin-bottom: 15px;">
+                        <label style="display: block; margin-bottom: 8px; font-weight: 500;">模型</label>
+                        <input type="text" id="ai-model" value="grok-beta" placeholder="例如: grok-beta, grok-4-1-fast-non-reasoning, gpt-4o-mini..." style="width: 100%; padding: 10px; border: 1px solid var(--border-color); border-radius: 6px;">
+                        <small style="color: var(--secondary-color); margin-top: 5px; display: block;">
+                            常用模型：grok-beta, grok-2-1212, grok-4-1-fast-non-reasoning, gpt-4o-mini
+                        </small>
+                    </div>
+
+                    <div class="form-group" style="margin-bottom: 15px;">
+                        <label style="display: block; margin-bottom: 8px; font-weight: 500;">訊息</label>
+                        <textarea id="ai-message" rows="8" placeholder="請輸入你想問 AI 的問題..." style="width: 100%; padding: 10px; border: 1px solid var(--border-color); border-radius: 6px; font-family: inherit; resize: vertical;"></textarea>
+                    </div>
+
+                    <button class="btn-primary" onclick="sendAIRequest()" style="width: 100%; padding: 12px; font-size: 16px;">
+                        發送請求
+                    </button>
+
+                    <div style="margin-top: 15px; padding: 12px; background: #eff6ff; border-radius: 6px; border: 1px solid #bfdbfe;">
+                        <div style="font-size: 13px; color: #1e40af; font-weight: 500; margin-bottom: 5px;">💡 提示</div>
+                        <div style="font-size: 12px; color: #3b82f6;">
+                            • 請求會自動轉換成 OpenAI 標準格式<br>
+                            • 響應會自動簡化成 {response: "..."}<br>
+                            • 使用轉換規則簡化 API 調用流程
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Response Panel -->
+                <div class="response-panel">
+                    <h3 style="margin-bottom: 15px;">響應結果</h3>
+
+                    <div id="ai-status" style="display: none; padding: 12px; border-radius: 6px; margin-bottom: 15px;">
+                        <div style="font-weight: 500; margin-bottom: 5px;" id="ai-status-text"></div>
+                        <div style="font-size: 13px; opacity: 0.8;" id="ai-status-time"></div>
+                    </div>
+
+                    <div style="margin-bottom: 15px;">
+                        <label style="display: block; margin-bottom: 8px; font-weight: 500;">簡化響應</label>
+                        <textarea id="ai-response" rows="10" readonly style="width: 100%; padding: 10px; border: 1px solid var(--border-color); border-radius: 6px; font-family: 'Courier New', monospace; background: #f9fafb; resize: vertical;" placeholder="AI 的響應會顯示在這裡..."></textarea>
+                    </div>
+
+                    <div>
+                        <label style="display: block; margin-bottom: 8px; font-weight: 500;">原始響應（完整）</label>
+                        <textarea id="ai-raw-response" rows="8" readonly style="width: 100%; padding: 10px; border: 1px solid var(--border-color); border-radius: 6px; font-family: 'Courier New', monospace; background: #f9fafb; font-size: 11px; resize: vertical;" placeholder="完整的 OpenAI API 響應..."></textarea>
                     </div>
                 </div>
             </div>
@@ -870,6 +938,93 @@
                 document.getElementById('response-status').style.display = 'flex';
                 document.getElementById('response-status-code').textContent = 'ERROR';
                 document.getElementById('response-status-code').className = 'status-value status-error';
+            }
+        }
+
+        // ==================== AI API 測試 ====================
+        async function sendAIRequest() {
+            const token = document.getElementById('ai-token').value.trim();
+            const model = document.getElementById('ai-model').value;
+            const message = document.getElementById('ai-message').value.trim();
+
+            if (!token) {
+                alert('請輸入 API Token');
+                return;
+            }
+
+            if (!message) {
+                alert('請輸入訊息');
+                return;
+            }
+
+            // Show loading
+            document.getElementById('ai-response').value = '發送請求中...';
+            document.getElementById('ai-raw-response').value = '';
+            const statusDiv = document.getElementById('ai-status');
+            statusDiv.style.display = 'block';
+            statusDiv.style.background = '#eff6ff';
+            statusDiv.style.border = '1px solid #bfdbfe';
+            document.getElementById('ai-status-text').style.color = '#1e40af';
+            document.getElementById('ai-status-text').textContent = '⏳ 正在發送請求...';
+            document.getElementById('ai-status-time').textContent = '';
+
+            const startTime = Date.now();
+
+            try {
+                // 使用簡化格式調用 API Gateway
+                const response = await fetch('http://localhost:3000/external/xai/chat', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`,
+                        'X-Gateway-API-Key': 'admin-key-12345'
+                    },
+                    body: JSON.stringify({
+                        message: message,
+                        model: model
+                    })
+                });
+
+                const endTime = Date.now();
+                const duration = endTime - startTime;
+
+                const rawData = await response.text();
+                let jsonData;
+
+                try {
+                    jsonData = JSON.parse(rawData);
+                } catch (e) {
+                    throw new Error(`響應解析失敗: ${rawData}`);
+                }
+
+                if (!response.ok) {
+                    throw new Error(jsonData.error || `請求失敗 (${response.status})`);
+                }
+
+                // 顯示簡化響應
+                const simplifiedResponse = jsonData.response || JSON.stringify(jsonData, null, 2);
+                document.getElementById('ai-response').value = simplifiedResponse;
+
+                // 顯示原始響應（假設沒有轉換）
+                document.getElementById('ai-raw-response').value = JSON.stringify(jsonData, null, 2);
+
+                // 顯示成功狀態
+                statusDiv.style.background = '#d1fae5';
+                statusDiv.style.border = '1px solid #86efac';
+                document.getElementById('ai-status-text').style.color = '#059669';
+                document.getElementById('ai-status-text').textContent = '✅ 請求成功';
+                document.getElementById('ai-status-time').textContent = `耗時: ${duration}ms`;
+
+            } catch (error) {
+                document.getElementById('ai-response').value = `錯誤: ${error.message}`;
+                document.getElementById('ai-raw-response').value = error.stack || '';
+
+                // 顯示錯誤狀態
+                statusDiv.style.background = '#fee2e2';
+                statusDiv.style.border = '1px solid #fca5a5';
+                document.getElementById('ai-status-text').style.color = '#dc2626';
+                document.getElementById('ai-status-text').textContent = '❌ 請求失敗';
+                document.getElementById('ai-status-time').textContent = error.message;
             }
         }
 

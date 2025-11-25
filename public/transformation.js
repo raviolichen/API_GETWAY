@@ -218,6 +218,7 @@
             { id: 'rule-source-format', key: 'sourceFormat' },
             { id: 'rule-target-format', key: 'targetFormat' },
             { id: 'rule-mode', key: 'mode' },
+            { id: 'rule-direction', key: 'direction' },
             { id: 'rule-test-url', key: 'testUrl' },
             { id: 'rule-sample-input', key: 'sampleInput' },
             { id: 'rule-expected-output', key: 'expectedOutput' },
@@ -244,6 +245,7 @@
             'rule-source-format': builderState.meta.sourceFormat,
             'rule-target-format': builderState.meta.targetFormat,
             'rule-mode': builderState.meta.mode,
+            'rule-direction': builderState.meta.direction,
             'rule-test-url': builderState.meta.testUrl,
             'rule-sample-input': builderState.meta.sampleInput,
             'rule-expected-output': builderState.meta.expectedOutput,
@@ -315,6 +317,7 @@
             sourceFormat: 'json',
             targetFormat: 'json',
             mode: 'template',
+            direction: 'response',
             testUrl: '',
             sampleInput: '',
             expectedOutput: '',
@@ -863,7 +866,7 @@
             updateEditingIndicator();
         } catch (err) {
             console.error('Failed to load transformation rules', err);
-            dom.rulesTableBody.innerHTML = `<tr><td colspan="6" style="text-align:center;color:var(--danger-color);">載入失敗</td></tr>`;
+            dom.rulesTableBody.innerHTML = `<tr><td colspan="8" style="text-align:center;color:var(--danger-color);">載入失敗</td></tr>`;
         } finally {
             transformationState.loading = false;
         }
@@ -874,18 +877,24 @@
         const tbody = dom.rulesTableBody;
 
         if (showLoadingRow) {
-            tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: var(--secondary-color);">載入中...</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="8" style="text-align: center; color: var(--secondary-color);">載入中...</td></tr>`;
             return;
         }
 
         if (!transformationState.rules.length) {
-            tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: var(--secondary-color);">沒有規則，請新增</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="8" style="text-align: center; color: var(--secondary-color);">沒有規則，請新增</td></tr>`;
             return;
         }
 
         const rows = transformationState.rules.map(rule => {
             const formatText = `${(rule.source_format || '').toUpperCase()} → ${(rule.target_format || '').toUpperCase()}`;
             const typeText = (rule.transformation_type || '').toUpperCase() || 'N/A';
+            const directionMap = {
+                'request': '📤 Push',
+                'response': '📥 Pull',
+                'both': '↔️ 雙向'
+            };
+            const directionText = directionMap[rule.direction] || directionMap['response'];
             const updatedAt = rule.updated_at || rule.created_at;
             const updatedText = updatedAt ? new Date(updatedAt).toLocaleString('zh-TW') : '-';
             const statusClass = rule.is_active ? 'active' : 'inactive';
@@ -895,6 +904,7 @@
                 <tr>
                     <td>${rule.rule_name || '未命名'}</td>
                     <td>${endpointLabel}</td>
+                    <td>${directionText}</td>
                     <td>${formatText}</td>
                     <td>${typeText}</td>
                     <td>${updatedText}</td>
@@ -927,6 +937,7 @@
             sourceFormat: rule.source_format || 'json',
             targetFormat: rule.target_format || 'json',
             mode: rule.transformation_type || 'template',
+            direction: rule.direction || 'response',
             testUrl: rule.test_source_url || '',
             sampleInput: normalizeTextPayload(rule.sample_input),
             expectedOutput: normalizeTextPayload(rule.expected_output),
@@ -1029,7 +1040,25 @@
         }
         setPreviewStatus('執行轉換中');
 
-        const payload = buildRulePayload();
+        let payload = buildRulePayload();
+
+        // 自動修正常見的模板語法錯誤
+        if (payload.template_config) {
+            // 只修正 JSON 字符串結束後直接跟 Handlebars 區塊的情況
+            // 避免誤修改 {{#each}}{{#unless 這樣的正常結構
+            payload.template_config = payload.template_config.replace(/"(\}\}\})(\{\{#)/g, '"$1 $2');
+            payload.template_config = payload.template_config.replace(/"(\}\})(\{\{#)/g, '"$1 $2');
+        }
+
+        // 同樣修正 pipeline 中的模板
+        if (payload.pipeline_config && Array.isArray(payload.pipeline_config)) {
+            payload.pipeline_config.forEach(step => {
+                if (step.type === 'template' && step.config && step.config.templateBody) {
+                    step.config.templateBody = step.config.templateBody.replace(/"(\}\}\})(\{\{#)/g, '"$1 $2');
+                    step.config.templateBody = step.config.templateBody.replace(/"(\}\})(\{\{#)/g, '"$1 $2');
+                }
+            });
+        }
 
         try {
             const response = await fetch(`${API_BASE}/api/admin/transformations/preview`, {
@@ -1077,9 +1106,14 @@
 
                 } else {
                     // 情況 3: 正常輸出（無錯誤或無驗證）
-                    dom.output.value = typeof result.output_text === 'string'
-                        ? result.output_text
-                        : JSON.stringify(result.output, null, 2);
+                    // 優先顯示字符串格式的輸出
+                    if (result.output_text && typeof result.output_text === 'string') {
+                        dom.output.value = result.output_text;
+                    } else if (result.output) {
+                        dom.output.value = JSON.stringify(result.output, null, 2);
+                    } else {
+                        dom.output.value = '(無輸出)';
+                    }
                 }
             }
 
@@ -1099,10 +1133,28 @@
         } catch (err) {
             console.error('Preview failed', err);
             if (dom.output) {
-                dom.output.value = `❌ ${err.message}`;
+                let errorMsg = `❌ 執行失敗\n\n`;
+                errorMsg += `錯誤訊息：${err.message}\n\n`;
+
+                // 提供具體的修正建議
+                if (err.message && err.message.includes('Parse error')) {
+                    errorMsg += `💡 提示：Handlebars 模板語法錯誤\n`;
+                    errorMsg += `   - 請檢查模板中的 {{}} 語法是否正確配對\n`;
+                    errorMsg += `   - 在 JSON 物件結束的 } 和 {{#unless 之間需要有空格\n`;
+                    errorMsg += `   - 範例：{...} }{{#unless @last}},{{/unless}}\n`;
+                } else if (err.message && err.message.includes('Invalid Record')) {
+                    errorMsg += `💡 提示：CSV 轉換錯誤\n`;
+                    errorMsg += `   - 輸出資料必須是有效的 JSON 陣列或物件\n`;
+                    errorMsg += `   - 請檢查模板是否產生了有效的 JSON 格式\n`;
+                } else if (err.message && err.message.includes('Unexpected')) {
+                    errorMsg += `💡 提示：JSON 格式錯誤\n`;
+                    errorMsg += `   - 請檢查輸入資料或模板輸出是否為有效的 JSON\n`;
+                }
+
+                dom.output.value = errorMsg;
             }
             if (dom.previewMeta) {
-                dom.previewMeta.textContent = '預覽失敗';
+                dom.previewMeta.textContent = '❌ 執行失敗 - 請查看錯誤訊息';
             }
             setPreviewStatus('預覽失敗');
         } finally {
@@ -1470,6 +1522,7 @@
             source_format: builderState.meta.sourceFormat,
             target_format: builderState.meta.targetFormat,
             transformation_type: builderState.meta.mode,
+            direction: builderState.meta.direction || 'response',
             test_source_url: builderState.meta.testUrl,
             sample_input: derivedSampleInput,
             expected_output: builderState.meta.expectedOutput,

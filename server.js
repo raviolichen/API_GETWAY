@@ -302,10 +302,27 @@ app.post('/external/openai/chat', async (req, res) => {
 
 // 2b. AI Passthrough Endpoint - xAI (Grok)
 app.post('/external/xai/chat', async (req, res) => {
-    const targetKey = req.headers['x-target-api-key'];
+    // Support both X-Target-API-Key and Authorization header
+    let targetKey = req.headers['x-target-api-key'];
+
+    if (!targetKey && req.headers['authorization']) {
+        const authHeader = req.headers['authorization'];
+        if (authHeader.startsWith('Bearer ')) {
+            targetKey = authHeader.substring(7);
+        }
+    }
 
     if (!targetKey) {
-        return res.status(400).json({ error: 'Missing X-Target-API-Key' });
+        return res.status(400).json({ error: 'Missing X-Target-API-Key or Authorization header' });
+    }
+
+    // === Apply Request Transformation (Push) ===
+    let requestBody = req.body;
+    const transformedRequest = await maybeTransformRequest(req.path, req.body, 'json');
+
+    if (transformedRequest) {
+        requestBody = transformedRequest.body;
+        console.log(`✓ Request transformed for ${req.path}:`, JSON.stringify(requestBody));
     }
 
     // Forwarding to xAI (Grok)
@@ -316,10 +333,19 @@ app.post('/external/xai/chat', async (req, res) => {
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${targetKey}`
             },
-            body: JSON.stringify(req.body)
+            body: JSON.stringify(requestBody)
         });
 
         const data = await response.json();
+
+        // === Apply Response Transformation (Pull) ===
+        const transformedResponse = await maybeTransformResponse(req.path, data, 'json');
+
+        if (transformedResponse) {
+            console.log(`✓ Response transformed for ${req.path}`);
+            return res.status(response.status).json(transformedResponse.body);
+        }
+
         res.status(response.status).json(data);
     } catch (error) {
         res.status(502).json({ error: 'Bad Gateway: Failed to connect to xAI' });
@@ -816,6 +842,7 @@ app.post('/api/admin/transformations', (req, res) => {
         payload.source_format,
         payload.target_format,
         payload.transformation_type,
+        payload.direction || 'response',
         payload.template_config || null,
         payload.mapping_config || null,
         payload.filter_config || '[]',
@@ -834,12 +861,12 @@ app.post('/api/admin/transformations', (req, res) => {
     db.run(`
         INSERT INTO transformation_rules (
             rule_id, endpoint_id, rule_name, description,
-            source_format, target_format, transformation_type,
+            source_format, target_format, transformation_type, direction,
             template_config, mapping_config, filter_config, pipeline_config,
             validation_config, validation_field_mappings, validation_schema_uri,
             validation_on_fail, validation_strict_mode,
             test_source_url, sample_input, expected_output, is_active
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `, params, function (err) {
         if (err) return res.status(500).json({ error: err.message });
         res.status(201).json(hydrateRuleRow({
@@ -861,6 +888,7 @@ app.put('/api/admin/transformations/:id', (req, res) => {
             source_format = ?,
             target_format = ?,
             transformation_type = ?,
+            direction = ?,
             template_config = ?,
             mapping_config = ?,
             filter_config = ?,
@@ -883,6 +911,7 @@ app.put('/api/admin/transformations/:id', (req, res) => {
         payload.source_format,
         payload.target_format,
         payload.transformation_type,
+        payload.direction || 'response',
         payload.template_config || null,
         payload.mapping_config || null,
         payload.filter_config || '[]',
@@ -1439,13 +1468,31 @@ app.use(async (req, res, next) => {
             return res.status(404).json({ error: 'Endpoint not registered' });
         }
 
+        // === Request Transformation (Push) ===
+        let requestBody = req.body;
+        let requestContentType = req.headers['content-type'] || 'application/json';
+
+        if (req.method !== 'GET' && req.method !== 'HEAD' && req.body) {
+            const requestSourceFormat = guessFormatFromContentType(requestContentType);
+            const transformedRequest = await maybeTransformRequest(req.path, req.body, requestSourceFormat);
+
+            if (transformedRequest) {
+                requestBody = transformedRequest.body;
+                requestContentType = transformedRequest.contentType;
+                console.log(`✓ Request transformed for ${req.path}: ${requestSourceFormat} → ${transformedRequest.contentType}`);
+            }
+        }
+
+        // Build fetch options with potentially transformed body
         const targetUrl = buildTargetUrl(endpoint.target_url, req.query);
-        const fetchOptions = buildProxyFetchOptions(req);
+        const fetchOptions = buildProxyFetchOptions(req, requestBody, requestContentType);
+
+        // === Upstream Request ===
         const upstream = await fetch(targetUrl, fetchOptions);
         const contentType = upstream.headers.get('content-type') || 'application/octet-stream';
         const rawBody = await upstream.text();
 
-        // Guess source format from content-type/header
+        // === Response Transformation (Pull) ===
         let sourceFormat = guessFormatFromContentType(contentType);
         let parsedPayload = rawBody;
         if (sourceFormat === 'json') {
@@ -1456,10 +1503,11 @@ app.use(async (req, res, next) => {
             }
         }
 
-        const transformed = await maybeTransformResponse(req.path, parsedPayload, sourceFormat);
-        if (transformed) {
-            res.set('Content-Type', transformed.contentType);
-            return res.status(upstream.status).send(transformed.body);
+        const transformedResponse = await maybeTransformResponse(req.path, parsedPayload, sourceFormat);
+        if (transformedResponse) {
+            res.set('Content-Type', transformedResponse.contentType);
+            console.log(`✓ Response transformed for ${req.path}: ${sourceFormat} → ${transformedResponse.contentType}`);
+            return res.status(upstream.status).send(transformedResponse.body);
         }
 
         res.set('Content-Type', contentType);
@@ -1697,6 +1745,7 @@ function normalizeRulePayload(body = {}, keepObjects = false) {
         source_format: (body.source_format || body.sourceFormat || 'json').toLowerCase(),
         target_format: (body.target_format || body.targetFormat || 'json').toLowerCase(),
         transformation_type: (body.transformation_type || body.transformationType || 'template').toLowerCase(),
+        direction: (body.direction || 'response').toLowerCase(),
         template_config: typeof body.template_config === 'object' && !keepObjects
             ? JSON.stringify(body.template_config)
             : (body.template_config || ''),
@@ -1825,9 +1874,30 @@ function generateApiKey() {
     return 'gw_' + crypto.randomBytes(32).toString('hex');
 }
 
+async function maybeTransformRequest(gatewayPath, payload, sourceFormat = 'json') {
+    try {
+        const rule = await findActiveRuleForPath(gatewayPath, 'request');
+        if (!rule) return null;
+
+        const result = await transformer.transform(payload, rule, { sourceFormat });
+        let contentType = 'application/json';
+        if (result.targetFormat === 'csv') contentType = 'text/csv';
+        if (result.targetFormat === 'xml') contentType = 'application/xml';
+
+        return {
+            body: result.output,
+            bodyText: result.outputText,
+            contentType
+        };
+    } catch (err) {
+        console.error(`Request transformation failed for path ${gatewayPath}:`, err);
+        return null;
+    }
+}
+
 async function maybeTransformResponse(gatewayPath, payload, sourceFormat = 'json') {
     try {
-        const rule = await findActiveRuleForPath(gatewayPath);
+        const rule = await findActiveRuleForPath(gatewayPath, 'response');
         if (!rule) return null;
 
         const result = await transformer.transform(payload, rule, { sourceFormat });
@@ -1840,21 +1910,23 @@ async function maybeTransformResponse(gatewayPath, payload, sourceFormat = 'json
             contentType
         };
     } catch (err) {
-        console.error(`Transformation failed for path ${gatewayPath}:`, err);
+        console.error(`Response transformation failed for path ${gatewayPath}:`, err);
         return null;
     }
 }
 
-function findActiveRuleForPath(gatewayPath) {
+function findActiveRuleForPath(gatewayPath, direction = 'response') {
     return new Promise((resolve, reject) => {
         db.get(`
             SELECT tr.*
             FROM transformation_rules tr
             JOIN api_endpoints ep ON tr.endpoint_id = ep.endpoint_id
-            WHERE ep.gateway_path = ? AND tr.is_active = 1
+            WHERE ep.gateway_path = ?
+              AND tr.is_active = 1
+              AND (tr.direction = ? OR tr.direction = 'both')
             ORDER BY tr.updated_at DESC
             LIMIT 1
-        `, [gatewayPath], (err, row) => {
+        `, [gatewayPath, direction], (err, row) => {
             if (err) return reject(err);
             resolve(hydrateRuleRow(row));
         });
@@ -1883,7 +1955,7 @@ function buildTargetUrl(baseUrl, query) {
     return url.toString();
 }
 
-function buildProxyFetchOptions(req) {
+function buildProxyFetchOptions(req, customBody = null, customContentType = null) {
     const headers = { ...req.headers };
     delete headers.host;
     delete headers.connection;
@@ -1891,13 +1963,25 @@ function buildProxyFetchOptions(req) {
     // Ensure admin key is not forwarded downstream
     delete headers['x-gateway-api-key'];
 
+    // Update Content-Type if custom one is provided
+    if (customContentType) {
+        headers['content-type'] = customContentType;
+    }
+
     const options = {
         method: req.method,
         headers
     };
 
     if (req.method !== 'GET' && req.method !== 'HEAD') {
-        if (req.is('application/json')) {
+        // Use custom body if provided (from transformation)
+        if (customBody !== null) {
+            if (typeof customBody === 'object') {
+                options.body = JSON.stringify(customBody);
+            } else {
+                options.body = customBody;
+            }
+        } else if (req.is('application/json')) {
             options.body = JSON.stringify(req.body);
         } else if (req.body && typeof req.body === 'string') {
             options.body = req.body;

@@ -253,6 +253,7 @@
                                 <tr>
                                     <th>名稱</th>
                                     <th>端點</th>
+                                    <th>方向</th>
                                     <th>格式</th>
                                     <th>類型</th>
                                     <th>更新時間</th>
@@ -262,7 +263,7 @@
                             </thead>
                             <tbody id="transformations-table-body">
                                 <tr>
-                                    <td colspan="6" style="text-align: center; color: var(--secondary-color);">尚未載入規則
+                                    <td colspan="8" style="text-align: center; color: var(--secondary-color);">尚未載入規則
                                     </td>
                                 </tr>
                             </tbody>
@@ -308,6 +309,14 @@
                                 <option value="template">模板填塞</option>
                                 <option value="mapping">字段映射</option>
                                 <option value="hybrid">Hybrid</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>轉換方向</label>
+                            <select id="rule-direction">
+                                <option value="response">響應轉換 (Pull)</option>
+                                <option value="request">請求轉換 (Push)</option>
+                                <option value="both">雙向轉換</option>
                             </select>
                         </div>
                         <div class="form-group">
